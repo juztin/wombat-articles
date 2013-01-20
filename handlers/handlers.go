@@ -96,7 +96,6 @@ func renderChapter(ctx wombat.Context, c chapters.Chapter) {
 func getChapter(ctx wombat.Context, titlePath string) {
 	c, ok := chapter(titlePath)
 	if !ok {
-		fmt.Println("FUCKER")
 		ctx.HttpError(404)
 		return
 	}
@@ -146,12 +145,14 @@ func postChapter(ctx wombat.Context, titlePath string) {
 
 func Create(ctx wombat.Context) (string, bool) {
 	title := ctx.FormValue("title")
-	if title != "" {
+	if title == "" {
+		fmt.Println("no title")
 		return title, false
 	}
 
 	c := chapters.NewChapter(title)
 	if err := c.Print(); err != nil {
+		fmt.Println("no chapter: ", err)
 		return "", false
 	}
 	return c.TitlePath, true

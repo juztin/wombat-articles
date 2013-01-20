@@ -52,7 +52,7 @@ func (b Backend) ByTitlePath(titlePath string) (interface{}, error) {
 	defer s.Close()
 
 	c := new(chapters.Chapter)
-	if err := col.Find(bson.M{"titlepath": titlePath}).One(&c); err != nil {
+	if err := col.Find(bson.M{"titlePath": titlePath}).One(&c); err != nil {
 		return c, backends.NewError(backends.StatusNotFound, "Chapter not found", err)
 	}
 	c.Printer = b
@@ -65,7 +65,7 @@ func (b Backend) Recent(limit, page int, includeUnpublished bool) (interface{}, 
 	c := make([]chapters.Chapter, 0, limit)
 	var q bson.M = nil
 	if !includeUnpublished {
-		q = bson.M{"ispublished": true}
+		q = bson.M{"isPublished": true}
 	}
 
 	/*iter := col.Find(q).
@@ -103,7 +103,7 @@ func (b Backend) Recent(limit, page int, includeUnpublished bool) (interface{}, 
 
 // Printer
 func (b Backend) Print(chapter interface{}) error {
-	c, ok := chapter.(chapters.Chapter)
+	c, ok := chapter.(*chapters.Chapter)
 	if !ok {
 		return errors.New("Doh!")
 	}
@@ -121,7 +121,7 @@ func (b Backend) UpdateContent(titlePath, content string, modified time.Time) er
 	defer s.Close()
 
 	// update the chapter's content
-	selector := bson.M{"titlepath": titlePath}
+	selector := bson.M{"titlePath": titlePath}
 	change := bson.M{"$set": bson.M{"content": &content, "modified": modified}}
 	if err := col.Update(selector, change); err != nil {
 		return backends.NewError(backends.StatusDatastoreError, "Failed to update chapter's content", err)
@@ -133,7 +133,7 @@ func (b Backend) Delete(titlePath string) error {
 	defer s.Close()
 
 	// update the chapter's content
-	selector := bson.M{"titlepath": titlePath}
+	selector := bson.M{"titlePath": titlePath}
 	if err := col.Remove(selector); err != nil {
 		return backends.NewError(backends.StatusDatastoreError, "Failed to remove chapter", err)
 	}
@@ -143,8 +143,8 @@ func (b Backend) Publish(titlePath string, publish bool) error {
 	session, col := b.col()
 	defer session.Close()
 
-	selector := bson.M{"titlepath": titlePath}
-	change := bson.M{"$set": bson.M{"ispublished": publish}}
+	selector := bson.M{"titlePath": titlePath}
+	change := bson.M{"$set": bson.M{"isPublished": publish}}
 	if err := col.Update(selector, change); err != nil {
 		log.Println(err)
 		return backends.NewError(backends.StatusDatastoreError, "Failed to update published status", err)
@@ -160,7 +160,7 @@ func (b Backend) WriteImg(titlePath string, img interface{}) error {
 	session, col := b.col()
 	defer session.Close()
 
-	selector := bson.M{"titlepath": titlePath}
+	selector := bson.M{"titlePath": titlePath}
 	change := bson.M{"$set": bson.M{"img": img}}
 	if err := col.Update(selector, change); err != nil {
 		return backends.NewError(backends.StatusDatastoreError, "Failed to update image/thumb", err)
@@ -177,7 +177,7 @@ func (b Backend) WriteImgs(titlePath string, imgs interface{}) error {
 	session, col := b.col()
 	defer session.Close()
 
-	selector := bson.M{"titlepath": titlePath}
+	selector := bson.M{"titlePath": titlePath}
 	change := bson.M{"$set": bson.M{"imgs": imgs}} //&a.Imgs}}
 	if err := col.Update(selector, change); err != nil {
 		return backends.NewError(backends.StatusDatastoreError, "Failed to update images", err)
