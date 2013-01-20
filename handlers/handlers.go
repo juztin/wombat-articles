@@ -177,6 +177,7 @@ func UpdateContent(ctx wombat.Context, titlePath string) {
 		if j, err := json.Marshal(map[string]string{"content": content}); err != nil {
 			log.Println("Failed to marshal article's content to JSON : ", err)
 			ctx.HttpError(500)
+			return
 		} else {
 			ctx.Writer.Write(j)
 		}
@@ -247,6 +248,7 @@ func ImgHandler(ctx wombat.Context, titlePath string, isThumb bool) {
 	if err != nil {
 		log.Println("Failed to persit new image: ", imgName, " for article: ", titlePath)
 		ctx.HttpError(500)
+		return
 	}
 
 	// append the image to the article
