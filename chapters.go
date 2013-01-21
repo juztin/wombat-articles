@@ -9,11 +9,6 @@ import (
 	"bitbucket.org/juztin/wombat/backends"
 )
 
-/*var (
-	reader  Reader
-	printer Printer
-)*/
-
 type Img struct {
 	Src string `src` //`json:"src"` // data:"src"`
 	Alt string `alt` //`json:"alt"` // data:"alt"`
