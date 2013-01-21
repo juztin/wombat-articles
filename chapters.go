@@ -15,22 +15,22 @@ import (
 )*/
 
 type Img struct {
-	Src string `src`//`json:"src"` // data:"src"`
-	Alt string `alt`//`json:"alt"` // data:"alt"`
-	W   int    `w`//`json:"w"`   // data:"w"`
-	H   int    `h`//`json:"h"`   // data:"h"`
+	Src string `src` //`json:"src"` // data:"src"`
+	Alt string `alt` //`json:"alt"` // data:"alt"`
+	W   int    `w`   //`json:"w"`   // data:"w"`
+	H   int    `h`   //`json:"h"`   // data:"h"`
 }
 
 type Chapter struct {
-	Printer     `-`//`json:"-"`
-	TitlePath   string    `titlePath`//`json:"titlePath"` // data:"titlepath"`
-	Title       string    `title`//`json:"title"`     // data:"title"`
-	Content     string    `content`//`json:"content"`   // data:"content"`
-	IsPublished bool      `isPublished`//`json:"isActive"`  // data:"isActive"`
-	Created     time.Time `created`//`json:"created"`   // data:"created"`
-	Modified    time.Time `modified`//`json:"modified"`  // data:"modified"`
-	Img         Img       `img`//`json:"img"`       // data:"img"`
-	Imgs        []Img     `imgs`//`json:"imgs"`      // data:"imgs"`
+	Printer     `-`       //`json:"-"`
+	TitlePath   string    `titlePath`   //`json:"titlePath"` // data:"titlepath"`
+	Title       string    `title`       //`json:"title"`     // data:"title"`
+	Content     string    `content`     //`json:"content"`   // data:"content"`
+	IsPublished bool      `isPublished` //`json:"isActive"`  // data:"isActive"`
+	Created     time.Time `created`     //`json:"created"`   // data:"created"`
+	Modified    time.Time `modified`    //`json:"modified"`  // data:"modified"`
+	Img         Img       `img`         //`json:"img"`       // data:"img"`
+	Imgs        []Img     `imgs`        //`json:"imgs"`      // data:"imgs"`
 }
 
 type Chapters struct {
