@@ -38,7 +38,7 @@ var (
 
 func Init(s wombat.Server, basePath, list, chapter, create, update string) {
 	reader = chapters.New()
-	imgRoot, _ = config.GroupString("articles", "imgRoot")
+	imgRoot, _ = config.GroupString("chapters", "imgRoot")
 
 	chapterPath = basePath
 	listView = list
