@@ -152,6 +152,18 @@ func (b Backend) Print(chapter interface{}) error {
 
 	return nil
 }
+func (b Backend) UpdateSynopsis(titlePath, synopsis string, modified time.Time) error {
+	s, col := b.Col()
+	defer s.Close()
+
+	// update the chapter's content
+	selector := bson.M{"titlePath": titlePath}
+	change := bson.M{"$set": bson.M{"synopsis": &synopsis, "modified": modified}}
+	if err := col.Update(selector, change); err != nil {
+		return backends.NewError(backends.StatusDatastoreError, "Failed to update chapter's synopsis", err)
+	}
+	return nil
+}
 func (b Backend) UpdateContent(titlePath, content string, modified time.Time) error {
 	s, col := b.Col()
 	defer s.Close()

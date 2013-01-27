@@ -20,6 +20,7 @@ type Chapter struct {
 	Printer     `-`       //`json:"-"`
 	TitlePath   string    `titlePath`   //`json:"titlePath"` // data:"titlepath"`
 	Title       string    `title`       //`json:"title"`     // data:"title"`
+	Synopsis    string    `synopsis`    //`json:"synopsis"   // data:"synopsis"`
 	Content     string    `content`     //`json:"content"`   // data:"content"`
 	IsPublished bool      `isPublished` //`json:"isActive"`  // data:"isActive"`
 	Created     time.Time `created`     //`json:"created"`   // data:"created"`
@@ -39,6 +40,7 @@ type Reader interface {
 
 type Printer interface {
 	Print(chapter interface{}) error
+	UpdateSynopsis(titlePath, synopsis string, modified time.Time) error
 	UpdateContent(titlePath, content string, modified time.Time) error
 	Delete(titlePath string) error
 	Publish(titlePath string, publish bool) error
@@ -93,6 +95,17 @@ func (c *Chapter) Print() error {
 }
 func (c *Chapter) UpdateContent(content string) error {
 	return c.Printer.UpdateContent(c.TitlePath, content, time.Now())
+}
+
+func (c *Chapter) SetSynopsis(synopsis string) error {
+	modified := time.Now()
+	if err := c.Printer.UpdateSynopsis(c.TitlePath, synopsis, modified); err != nil {
+		return err
+	} else {
+		c.Synopsis = synopsis
+		c.Modified = modified
+	}
+	return nil
 }
 
 func (c *Chapter) SetContent(content string) error {

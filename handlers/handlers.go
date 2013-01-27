@@ -20,21 +20,26 @@ type postHandler func(ctx wombat.Context, action, titlePath string)
 
 type chapterData struct {
 	data.Data
-	Chapter interface{}
+	Chapter         interface{}
+	ChapterMediaURL string
 }
 
 type chaptersData struct {
 	data.Data
-	Chapters interface{}
+	Chapters        interface{}
+	ChapterMediaURL string
 }
 
-type chapterFn func(c interface{}) chapters.Chapter
+type chapterFn func(chapter interface{}) chapters.Chapter
+type dataFn func(ctx wombat.Context, chapter interface{}, titlePath string, isSingle bool) interface{}
 
 var (
 	ChapterFn   chapterFn
+	DataFn      dataFn
 	PostHandler postHandler
 	reader      chapters.Chapters
 	imgRoot     string
+	media       string
 	chapterPath string
 	listView    string
 	chapterView string
@@ -44,8 +49,10 @@ var (
 
 func Init(s wombat.Server, basePath, list, chapter, create, update string) {
 	ChapterFn = coreChapter
+	DataFn = coreData
 	reader = chapters.New()
 	imgRoot, _ = config.GroupString("chapters", "imgRoot")
+	media, _ = config.GroupString("chapters", "media")
 
 	chapterPath = basePath
 	listView = list
@@ -68,6 +75,13 @@ func coreChapter(o interface{}) (c chapters.Chapter) {
 		c = chapter
 	}
 	return
+}
+
+func coreData(ctx wombat.Context, chapter interface{}, titlePath string, isSingle bool) interface{} {
+	if titlePath == "" {
+		return &chaptersData{data.New(ctx), chapter, media}
+	}
+	return &chapterData{data.New(ctx), chapter, media + titlePath[1:]}
 }
 
 func Chapter(titlePath string, unPublished bool) (c interface{}, ok bool) {
@@ -93,7 +107,7 @@ func listChapters(ctx wombat.Context) {
 	}
 
 	c, _ := reader.Recent(10, 0, ctx.User.IsAdmin())
-	d := &chaptersData{data.New(ctx), c}
+	d := DataFn(ctx, c, "", false)
 	views.Execute(ctx.Context, listView, d)
 }
 
@@ -126,7 +140,7 @@ func GetChapter(ctx wombat.Context, titlePath string) {
 		}
 	}
 
-	d := &chapterData{data.New(ctx), c}
+	d := DataFn(ctx, c, titlePath, true)
 	views.Execute(ctx.Context, v, d)
 }
 
@@ -142,7 +156,7 @@ func postChapter(ctx wombat.Context, titlePath string) {
 					GetChapter(ctx, titlePath)
 				}
 			case "update":
-				UpdateContent(ctx, titlePath)
+				update(ctx, titlePath)
 			case "delete":
 				Delete(ctx, titlePath)
 			case "addImage":
@@ -164,6 +178,53 @@ func postChapter(ctx wombat.Context, titlePath string) {
 
 /* ------------------------------------  ------------------------------------ */
 
+func updateSynopsisContent(ctx wombat.Context, titlePath, key string) {
+	o, ok := Chapter(titlePath, true)
+	if !ok {
+		ctx.HttpError(404)
+		return
+	}
+	c := ChapterFn(o)
+
+	// get the value
+	s := ctx.FormValue(key)
+	switch key {
+	case "content":
+		c.SetContent(s)
+	case "synopsis":
+		c.SetSynopsis(s)
+	}
+
+	// render either JSON|HTML
+	if d := ctx.FormValue("d"); d == "json" {
+		// return the new article's (json)
+		ctx.Writer.Header().Set("Content-Type", "application/json")
+		if j, err := json.Marshal(map[string]string{key: s}); err != nil {
+			log.Println("Failed to marshal article's `", key, "` to JSON : ", err)
+			ctx.HttpError(500)
+			return
+		} else {
+			ctx.Writer.Write(j)
+		}
+	} else {
+		//renderChapter(ctx, *a)
+	}
+}
+
+func update(ctx wombat.Context, titlePath string) {
+	if ctx.Form == nil {
+		ctx.ParseMultipartForm(2 << 20)
+	}
+
+	if _, ok := ctx.Form["content"]; ok {
+		UpdateContent(ctx, titlePath)
+	} else if _, ok := ctx.Form["synopsis"]; ok {
+		UpdateSynopsis(ctx, titlePath)
+	}
+}
+
+/* ---------- */
+
 func Create(ctx wombat.Context) (string, bool) {
 	title := ctx.FormValue("title")
 	if title == "" {
@@ -179,32 +240,12 @@ func Create(ctx wombat.Context) (string, bool) {
 	return c.TitlePath, true
 }
 
+func UpdateSynopsis(ctx wombat.Context, titlePath string) {
+	updateSynopsisContent(ctx, titlePath, "synopsis")
+}
+
 func UpdateContent(ctx wombat.Context, titlePath string) {
-	o, ok := Chapter(titlePath, true)
-	if !ok {
-		ctx.HttpError(404)
-		return
-	}
-	c := ChapterFn(o)
-
-	// get the content
-	content := ctx.FormValue("content")
-	c.UpdateContent(content)
-
-	// render either JSON|HTML
-	if d := ctx.FormValue("d"); d == "json" {
-		// return the new article's content (json)
-		ctx.Writer.Header().Set("Content-Type", "application/json")
-		if j, err := json.Marshal(map[string]string{"content": content}); err != nil {
-			log.Println("Failed to marshal article's content to JSON : ", err)
-			ctx.HttpError(500)
-			return
-		} else {
-			ctx.Writer.Write(j)
-		}
-	} else {
-		//renderChapter(ctx, *a)
-	}
+	updateSynopsisContent(ctx, titlePath, "content")
 }
 
 func Delete(ctx wombat.Context, titlePath string) {
