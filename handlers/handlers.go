@@ -16,17 +16,23 @@ import (
 	"bitbucket.org/juztin/wombat/template/data"
 )
 
+type postHandler func(ctx wombat.Context, action, titlePath string)
+
 type chapterData struct {
 	data.Data
-	Chapter chapters.Chapter
+	Chapter interface{}
 }
 
 type chaptersData struct {
 	data.Data
-	Chapters []chapters.Chapter
+	Chapters interface{}
 }
 
+type chapterFn func(c interface{}) chapters.Chapter
+
 var (
+	ChapterFn   chapterFn
+	PostHandler postHandler
 	reader      chapters.Chapters
 	imgRoot     string
 	chapterPath string
@@ -37,6 +43,7 @@ var (
 )
 
 func Init(s wombat.Server, basePath, list, chapter, create, update string) {
+	ChapterFn = coreChapter
 	reader = chapters.New()
 	imgRoot, _ = config.GroupString("chapters", "imgRoot")
 
@@ -52,15 +59,26 @@ func Init(s wombat.Server, basePath, list, chapter, create, update string) {
 		Post(newChapter)
 
 	s.RRouter(fmt.Sprintf("^%s(/\\d{4}/\\d{2}/\\d{2}/[a-zA-Z0-9-]+/)$", chapterPath)).
-		Get(getChapter).
+		Get(GetChapter).
 		Post(postChapter)
 }
 
-func chapter(titlePath string) (c chapters.Chapter, ok bool) {
-	if o, err := reader.ByTitlePath(titlePath); err != nil {
+func coreChapter(o interface{}) (c chapters.Chapter) {
+	if chapter, ok := o.(chapters.Chapter); ok {
+		c = chapter
+	}
+	return
+}
+
+func Chapter(titlePath string, unPublished bool) (c interface{}, ok bool) {
+	// Maybe we don't want to log this, just in case someone decides to be a jerk
+	/*if o, err := reader.ByTitlePath(titlePath, unPublished); err != nil {
 		log.Println("couldn't get chapter: ", titlePath, " : ", err)
 	} else {
-		c, ok = o.(chapters.Chapter)
+		c, ok = o, true
+	}*/
+	if o, err := reader.ByTitlePath(titlePath, unPublished); err == nil {
+		c, ok = o, true
 	}
 	return
 }
@@ -75,7 +93,7 @@ func listChapters(ctx wombat.Context) {
 	}
 
 	c, _ := reader.Recent(10, 0, ctx.User.IsAdmin())
-	d := &chaptersData{data.New(ctx), c.([]chapters.Chapter)}
+	d := &chaptersData{data.New(ctx), c}
 	views.Execute(ctx.Context, listView, d)
 }
 
@@ -88,26 +106,24 @@ func newChapter(ctx wombat.Context) {
 	views.Execute(ctx.Context, listView, data.New(ctx))
 }
 
-func renderChapter(ctx wombat.Context, c chapters.Chapter) {
+/*func renderChapter(ctx wombat.Context, c interface{}) {
 	d := &chapterData{data.New(ctx), c}
 	views.Execute(ctx.Context, updateView, d)
-}
+}*/
 
-func getChapter(ctx wombat.Context, titlePath string) {
-	c, ok := chapter(titlePath)
+func GetChapter(ctx wombat.Context, titlePath string) {
+	isAdmin := ctx.User.IsAdmin()
+	c, ok := Chapter(titlePath, isAdmin)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
 
 	v := chapterView
-	if ctx.User.IsAdmin() {
+	if isAdmin {
 		if action := ctx.FormValue("action"); action == "update" {
 			v = updateView
 		}
-	} else if !c.IsPublished {
-		ctx.HttpError(404)
-		return
 	}
 
 	d := &chapterData{data.New(ctx), c}
@@ -119,7 +135,12 @@ func postChapter(ctx wombat.Context, titlePath string) {
 		if action := ctx.FormValue("action"); action != "" {
 			switch action {
 			default:
-				getChapter(ctx, titlePath)
+				//GetChapter(ctx, titlePath)
+				if PostHandler != nil {
+					PostHandler(ctx, action, titlePath)
+				} else {
+					GetChapter(ctx, titlePath)
+				}
 			case "update":
 				UpdateContent(ctx, titlePath)
 			case "delete":
@@ -134,10 +155,10 @@ func postChapter(ctx wombat.Context, titlePath string) {
 				SetActive(ctx, titlePath)
 			}
 		} else {
-			getChapter(ctx, titlePath)
+			GetChapter(ctx, titlePath)
 		}
 	} else {
-		getChapter(ctx, titlePath)
+		GetChapter(ctx, titlePath)
 	}
 }
 
@@ -158,13 +179,13 @@ func Create(ctx wombat.Context) (string, bool) {
 	return c.TitlePath, true
 }
 
-//func UpdateContent(ctx wombat.Context, titlePath string, article *interface{}) error {
 func UpdateContent(ctx wombat.Context, titlePath string) {
-	c, ok := chapter(titlePath)
+	o, ok := Chapter(titlePath, true)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
+	c := ChapterFn(o)
 
 	// get the content
 	content := ctx.FormValue("content")
@@ -192,11 +213,12 @@ func Delete(ctx wombat.Context, titlePath string) {
 
 func ImgHandler(ctx wombat.Context, titlePath string, isThumb bool) {
 	// get the chapter
-	c, ok := chapter(titlePath)
+	o, ok := Chapter(titlePath, true)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
+	c := ChapterFn(o)
 
 	// create the image, from the POST
 	imgName, f, err := formFileImage(ctx, titlePath)
@@ -280,11 +302,12 @@ func AddImage(ctx wombat.Context, titlePath string) {
 
 func DelImage(ctx wombat.Context, titlePath string) {
 	// get the chapter
-	c, ok := chapter(titlePath)
+	o, ok := Chapter(titlePath, true)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
+	c := ChapterFn(o)
 
 	// get the image to be deleted
 	src := ctx.FormValue("image")
@@ -318,11 +341,12 @@ func DelImage(ctx wombat.Context, titlePath string) {
 
 func SetActive(ctx wombat.Context, titlePath string) {
 	// get the chapter
-	c, ok := chapter(titlePath)
+	o, ok := Chapter(titlePath, true)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
+	c := ChapterFn(o)
 
 	isActive, _ := strconv.ParseBool(ctx.FormValue("active"))
 	if err := c.Publish(isActive); err != nil {

@@ -33,8 +33,8 @@ type Chapters struct {
 }
 
 type Reader interface {
-	ByTitlePath(titlePath string) (interface{}, error)
-	Recent(limit, page int, includeUnpublished bool) (interface{}, error)
+	ByTitlePath(titlePath string, unPublished bool) (interface{}, error)
+	Recent(limit, page int, unPublished bool) (interface{}, error)
 }
 
 type Printer interface {

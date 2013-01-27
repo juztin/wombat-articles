@@ -1,7 +1,6 @@
 package mongo
 
 import (
-	"errors"
 	"log"
 	"time"
 
@@ -16,14 +15,23 @@ import (
 const COL_NAME = "chapters"
 
 var (
-	db = "main"
+	db      = "main"
+	backend Backend
 )
 
 type Backend struct {
-	session *mgo.Session
+	session     *mgo.Session
+	NewChapter  ChapterFn
+	NewChapters ChaptersFn
+	SetPrinter  PrinterFn
+	SetPrinters PrintersFn
 }
 
-type queryFunc func(c *mgo.Collection)
+type QueryFunc func(c *mgo.Collection)
+type ChapterFn func() interface{}
+type ChaptersFn func(limit int) interface{}
+type PrinterFn func(o interface{})
+type PrintersFn func(o interface{})
 
 func init() {
 	if url, ok := config.GroupString("db", "mongoURL"); !ok {
@@ -34,9 +42,9 @@ func init() {
 		// set monotonic mode
 		session.SetMode(mgo.Monotonic, true)
 		// register backend
-		b := Backend{session}
-		backends.Register("mongo:apps:chapter-reader", b)
-		backends.Register("mongo:apps:chapter-printer", b)
+		backend = Backend{session, newChapter, newChapters, setPrinter, setPrinters}
+		backends.Register("mongo:apps:chapter-reader", backend)
+		backends.Register("mongo:apps:chapter-printer", backend)
 	}
 
 	if d, ok := config.GroupString("db", "mongoDB"); ok {
@@ -44,35 +52,61 @@ func init() {
 	}
 }
 
-func (b Backend) col() (*mgo.Session, *mgo.Collection) {
+func newChapter() interface{} {
+	return new(chapters.Chapter)
+}
+
+func newChapters(limit int) interface{} {
+	s := make([]chapters.Chapter, 0, limit)
+	return &s
+}
+
+func setPrinter(o interface{}) {
+	if c, o := o.(*chapters.Chapter); o {
+		c.Printer = backend
+	}
+}
+func setPrinters(o interface{}) {
+	if s, ok := o.(*[]chapters.Chapter); ok {
+		for _, c := range *s {
+			c.Printer = backend
+		}
+	}
+}
+
+func (b Backend) Col() (*mgo.Session, *mgo.Collection) {
 	s := b.session.New()
 	return s, s.DB(db).C(COL_NAME)
 }
-func (b Backend) query(fn queryFunc) {
-	s, c := b.col()
+func (b Backend) Query(fn QueryFunc) {
+	s, c := b.Col()
 	defer s.Close()
 	fn(c)
 }
 
 // Reader
-func (b Backend) ByTitlePath(titlePath string) (interface{}, error) {
-	s, col := b.col()
+func (b Backend) ByTitlePath(titlePath string, unPublished bool) (interface{}, error) {
+	s, col := b.Col()
 	defer s.Close()
 
-	c := new(chapters.Chapter)
-	if err := col.Find(bson.M{"titlePath": titlePath}).One(&c); err != nil {
+	c := b.NewChapter()
+	query := bson.M{"titlePath": titlePath}
+	if !unPublished {
+		query["isPublished"] = true
+	}
+	if err := col.Find(query).One(c); err != nil {
 		return c, backends.NewError(backends.StatusNotFound, "Chapter not found", err)
 	}
-	c.Printer = b
-	return *c, nil
+	b.SetPrinter(c)
+	return c, nil
 }
-func (b Backend) Recent(limit, page int, includeUnpublished bool) (interface{}, error) {
-	s, col := b.col()
+func (b Backend) Recent(limit, page int, unPublished bool) (interface{}, error) {
+	s, col := b.Col()
 	defer s.Close()
 
-	c := make([]chapters.Chapter, 0, limit)
+	c := b.NewChapters(limit)
 	var q bson.M = nil
-	if !includeUnpublished {
+	if !unPublished {
 		q = bson.M{"isPublished": true}
 	}
 
@@ -99,33 +133,27 @@ func (b Backend) Recent(limit, page int, includeUnpublished bool) (interface{}, 
 		Sort("created").
 		Skip(page * limit).
 		Limit(limit).
-		All(&c); err != nil {
+		All(c); err != nil {
 		return c, backends.NewError(backends.StatusDatastoreError, "Failed to query chapter list", err)
 	}
-	for i := range c {
-		c[i].Printer = b
-	}
+	b.SetPrinter(c)
 
 	return c, nil
 }
 
 // Printer
 func (b Backend) Print(chapter interface{}) error {
-	c, ok := chapter.(*chapters.Chapter)
-	if !ok {
-		return errors.New("Doh!")
-	}
-	s, col := b.col()
+	s, col := b.Col()
 	defer s.Close()
 
-	if err := col.Insert(c); err != nil {
+	if err := col.Insert(chapter); err != nil {
 		return backends.NewError(backends.StatusDatastoreError, "Failed to create chapter", err)
 	}
 
 	return nil
 }
 func (b Backend) UpdateContent(titlePath, content string, modified time.Time) error {
-	s, col := b.col()
+	s, col := b.Col()
 	defer s.Close()
 
 	// update the chapter's content
@@ -137,7 +165,7 @@ func (b Backend) UpdateContent(titlePath, content string, modified time.Time) er
 	return nil
 }
 func (b Backend) Delete(titlePath string) error {
-	s, col := b.col()
+	s, col := b.Col()
 	defer s.Close()
 
 	// update the chapter's content
@@ -148,7 +176,7 @@ func (b Backend) Delete(titlePath string) error {
 	return nil
 }
 func (b Backend) Publish(titlePath string, publish bool) error {
-	session, col := b.col()
+	session, col := b.Col()
 	defer session.Close()
 
 	selector := bson.M{"titlePath": titlePath}
@@ -160,12 +188,7 @@ func (b Backend) Publish(titlePath string, publish bool) error {
 	return nil
 }
 func (b Backend) WriteImg(titlePath string, img interface{}) error {
-	/*i, ok := img.(chapters.Img)
-	if !ok {
-		return errors.New("Doh!")
-	}*/
-
-	session, col := b.col()
+	session, col := b.Col()
 	defer session.Close()
 
 	selector := bson.M{"titlePath": titlePath}
@@ -176,13 +199,7 @@ func (b Backend) WriteImg(titlePath string, img interface{}) error {
 	return nil
 }
 func (b Backend) WriteImgs(titlePath string, imgs interface{}) error {
-	/*i, ok := imgs.([]chapters.Img)
-	if !ok {
-		return errors.New("Doh!")
-	} else {
-		log.Println(i)
-	}*/
-	session, col := b.col()
+	session, col := b.Col()
 	defer session.Close()
 
 	selector := bson.M{"titlePath": titlePath}
