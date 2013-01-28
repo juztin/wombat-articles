@@ -114,7 +114,8 @@ func listChapters(ctx wombat.Context) {
 func newChapter(ctx wombat.Context) {
 	if ctx.User.IsAdmin() {
 		if t, ok := Create(ctx); ok {
-			ctx.Redirect(chapterPath + t)
+			//ctx.Redirect(fmt.Sprintf("%s/%s?action=update", chapterPath, t))
+			ctx.Redirect(fmt.Sprintf("%s/%s", chapterPath, t))
 		}
 	}
 	views.Execute(ctx.Context, listView, data.New(ctx))
