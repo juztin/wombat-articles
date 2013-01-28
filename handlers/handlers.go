@@ -65,7 +65,7 @@ func Init(s wombat.Server, basePath, list, chapter, create, update string) {
 		Get(listChapters).
 		Post(newChapter)
 
-	s.RRouter(fmt.Sprintf("^%s(/\\d{4}/\\d{2}/\\d{2}/[a-zA-Z0-9-]+/)$", chapterPath)).
+	s.RRouter(fmt.Sprintf("^%s/(\\d{4}/\\d{2}/\\d{2}/[a-zA-Z0-9-]+/)$", chapterPath)).
 		Get(GetChapter).
 		Post(postChapter)
 }
@@ -81,7 +81,7 @@ func coreData(ctx wombat.Context, chapter interface{}, titlePath string, isSingl
 	if titlePath == "" {
 		return &chaptersData{data.New(ctx), chapter, media}
 	}
-	return &chapterData{data.New(ctx), chapter, media + titlePath[1:]}
+	return &chapterData{data.New(ctx), chapter, media + titlePath}
 }
 
 func Chapter(titlePath string, unPublished bool) (c interface{}, ok bool) {

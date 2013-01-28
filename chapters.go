@@ -82,7 +82,7 @@ func NewChapter(title string) *Chapter {
 func titlePathTime(title string) (string, time.Time) {
 	// create a new article, based on the current time
 	t := time.Now()
-	titlePath := fmt.Sprintf("/%d/%02d/%02d/%s/",
+	titlePath := fmt.Sprintf("%d/%02d/%02d/%s/",
 		t.Year(),
 		t.Month(),
 		t.Day(),
