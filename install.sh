@@ -1,6 +1,6 @@
 #!/bin/sh -
 
-go install bitbucket.org/juztin/wombat/apps/chapters
-go install bitbucket.org/juztin/wombat/apps/chapters/backends
-go install bitbucket.org/juztin/wombat/apps/chapters/backends/mongo
-go install bitbucket.org/juztin/wombat/apps/chapters/handlers
+go install bitbucket.org/juztin/wombat/apps/articles
+go install bitbucket.org/juztin/wombat/apps/articles/backends
+go install bitbucket.org/juztin/wombat/apps/articles/backends/mongo
+go install bitbucket.org/juztin/wombat/apps/articles/handlers

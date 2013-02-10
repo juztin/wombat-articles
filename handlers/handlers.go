@@ -11,83 +11,83 @@ import (
 
 	"bitbucket.org/juztin/dingo/views"
 	"bitbucket.org/juztin/wombat"
-	"bitbucket.org/juztin/wombat/apps/chapters"
+	"bitbucket.org/juztin/wombat/apps/articles"
 	"bitbucket.org/juztin/wombat/config"
 	"bitbucket.org/juztin/wombat/template/data"
 )
 
 type postHandler func(ctx wombat.Context, action, titlePath string)
 
-type chapterData struct {
+type articleData struct {
 	data.Data
-	Chapter         interface{}
-	ChapterMediaURL string
+	Article         interface{}
+	ArticleMediaURL string
 }
 
-type chaptersData struct {
+type articlesData struct {
 	data.Data
-	Chapters        interface{}
-	ChapterMediaURL string
+	Articles        interface{}
+	ArticleMediaURL string
 }
 
-type chapterFn func(chapter interface{}) *chapters.Chapter
-type dataFn func(ctx wombat.Context, chapter interface{}, titlePath string, isSingle bool) interface{}
+type articleFn func(article interface{}) *articles.Article
+type dataFn func(ctx wombat.Context, article interface{}, titlePath string, isSingle bool) interface{}
 
 var (
-	ChapterFn   chapterFn
+	ArticleFn   articleFn
 	DataFn      dataFn
 	PostHandler postHandler
-	reader      chapters.Chapters
+	reader      articles.Articles
 	imgRoot     string
 	media       string
-	chapterPath string
+	articlePath string
 	listView    string
-	chapterView string
+	articleView string
 	createView  string
 	updateView  string
 )
 
-func Init(s wombat.Server, basePath, list, chapter, create, update string) {
-	ChapterFn = coreChapter
+func Init(s wombat.Server, basePath, list, article, create, update string) {
+	ArticleFn = coreArticle
 	DataFn = coreData
-	reader = chapters.New()
-	imgRoot, _ = config.GroupString("chapters", "imgRoot")
-	media, _ = config.GroupString("chapters", "media")
+	reader = articles.New()
+	imgRoot, _ = config.GroupString("articles", "imgRoot")
+	media, _ = config.GroupString("articles", "media")
 
-	chapterPath = basePath
+	articlePath = basePath
 	listView = list
-	chapterView = chapter
+	articleView = article
 	createView = create
 	updateView = update
 
 	// routes
-	s.ReRouter(fmt.Sprintf("^%s/$", chapterPath)).
-		Get(listChapters).
-		Post(newChapter)
+	s.ReRouter(fmt.Sprintf("^%s/$", articlePath)).
+		Get(listArticles).
+		Post(newArticle)
 
-	s.RRouter(fmt.Sprintf("^%s/(\\d{4}/\\d{2}/\\d{2}/[a-zA-Z0-9-]+/)$", chapterPath)).
-		Get(GetChapter).
-		Post(postChapter)
+	s.RRouter(fmt.Sprintf("^%s/(\\d{4}/\\d{2}/\\d{2}/[a-zA-Z0-9-]+/)$", articlePath)).
+		Get(GetArticle).
+		Post(postArticle)
 }
 
-func coreChapter(o interface{}) (c *chapters.Chapter) {
-	if chapter, ok := o.(*chapters.Chapter); ok {
-		c = chapter
+func coreArticle(o interface{}) (c *articles.Article) {
+	if article, ok := o.(*articles.Article); ok {
+		c = article
 	}
 	return
 }
 
-func coreData(ctx wombat.Context, chapter interface{}, titlePath string, isSingle bool) interface{} {
+func coreData(ctx wombat.Context, article interface{}, titlePath string, isSingle bool) interface{} {
 	if titlePath == "" {
-		return &chaptersData{data.New(ctx), chapter, media}
+		return &articlesData{data.New(ctx), article, media}
 	}
-	return &chapterData{data.New(ctx), chapter, media + titlePath}
+	return &articleData{data.New(ctx), article, media + titlePath}
 }
 
-func Chapter(titlePath string, unPublished bool) (c interface{}, ok bool) {
+func Article(titlePath string, unPublished bool) (c interface{}, ok bool) {
 	// Maybe we don't want to log this, just in case someone decides to be a jerk
 	/*if o, err := reader.ByTitlePath(titlePath, unPublished); err != nil {
-		log.Println("couldn't get chapter: ", titlePath, " : ", err)
+		log.Println("couldn't get article: ", titlePath, " : ", err)
 	} else {
 		c, ok = o, true
 	}*/
@@ -98,7 +98,7 @@ func Chapter(titlePath string, unPublished bool) (c interface{}, ok bool) {
 }
 
 /* -------------------------------- Handlers -------------------------------- */
-func listChapters(ctx wombat.Context) {
+func listArticles(ctx wombat.Context) {
 	if ctx.User.IsAdmin() {
 		if action := ctx.FormValue("action"); action == "create" {
 			views.Execute(ctx.Context, createView, data.New(ctx))
@@ -111,30 +111,30 @@ func listChapters(ctx wombat.Context) {
 	views.Execute(ctx.Context, listView, d)
 }
 
-func newChapter(ctx wombat.Context) {
+func newArticle(ctx wombat.Context) {
 	if ctx.User.IsAdmin() {
 		if t, ok := Create(ctx); ok {
-			//ctx.Redirect(fmt.Sprintf("%s/%s?action=update", chapterPath, t))
-			ctx.Redirect(fmt.Sprintf("%s/%s", chapterPath, t))
+			//ctx.Redirect(fmt.Sprintf("%s/%s?action=update", articlePath, t))
+			ctx.Redirect(fmt.Sprintf("%s/%s", articlePath, t))
 		}
 	}
 	views.Execute(ctx.Context, listView, data.New(ctx))
 }
 
-/*func renderChapter(ctx wombat.Context, c interface{}) {
-	d := &chapterData{data.New(ctx), c}
+/*func renderArticle(ctx wombat.Context, c interface{}) {
+	d := &articleData{data.New(ctx), c}
 	views.Execute(ctx.Context, updateView, d)
 }*/
 
-func GetChapter(ctx wombat.Context, titlePath string) {
+func GetArticle(ctx wombat.Context, titlePath string) {
 	isAdmin := ctx.User.IsAdmin()
-	c, ok := Chapter(titlePath, isAdmin)
+	c, ok := Article(titlePath, isAdmin)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
 
-	v := chapterView
+	v := articleView
 	if isAdmin {
 		if action := ctx.FormValue("action"); action == "update" {
 			v = updateView
@@ -145,16 +145,16 @@ func GetChapter(ctx wombat.Context, titlePath string) {
 	views.Execute(ctx.Context, v, d)
 }
 
-func postChapter(ctx wombat.Context, titlePath string) {
+func postArticle(ctx wombat.Context, titlePath string) {
 	if ctx.User.IsAdmin() {
 		if action := ctx.FormValue("action"); action != "" {
 			switch action {
 			default:
-				//GetChapter(ctx, titlePath)
+				//GetArticle(ctx, titlePath)
 				if PostHandler != nil {
 					PostHandler(ctx, action, titlePath)
 				} else {
-					GetChapter(ctx, titlePath)
+					GetArticle(ctx, titlePath)
 				}
 			case "update":
 				update(ctx, titlePath)
@@ -170,22 +170,22 @@ func postChapter(ctx wombat.Context, titlePath string) {
 				SetActive(ctx, titlePath)
 			}
 		} else {
-			GetChapter(ctx, titlePath)
+			GetArticle(ctx, titlePath)
 		}
 	} else {
-		GetChapter(ctx, titlePath)
+		GetArticle(ctx, titlePath)
 	}
 }
 
 /* ------------------------------------  ------------------------------------ */
 
 func updateSynopsisContent(ctx wombat.Context, titlePath, key string) {
-	o, ok := Chapter(titlePath, true)
+	o, ok := Article(titlePath, true)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
-	c := ChapterFn(o)
+	c := ArticleFn(o)
 
 	// get the value
 	s := ctx.FormValue(key)
@@ -208,7 +208,7 @@ func updateSynopsisContent(ctx wombat.Context, titlePath, key string) {
 			ctx.Writer.Write(j)
 		}
 	} else {
-		//renderChapter(ctx, *a)
+		//renderArticle(ctx, *a)
 	}
 }
 
@@ -233,9 +233,9 @@ func Create(ctx wombat.Context) (string, bool) {
 		return title, false
 	}
 
-	c := chapters.NewChapter(title)
+	c := articles.NewArticle(title)
 	if err := c.Print(); err != nil {
-		fmt.Println("no chapter: ", err)
+		fmt.Println("no article: ", err)
 		return "", false
 	}
 	return c.TitlePath, true
@@ -250,17 +250,17 @@ func UpdateContent(ctx wombat.Context, titlePath string) {
 }
 
 func Delete(ctx wombat.Context, titlePath string) {
-	//getChapter(ctx, titlePath)
+	//getArticle(ctx, titlePath)
 }
 
 func ImgHandler(ctx wombat.Context, titlePath string, isThumb bool) {
-	// get the chapter
-	o, ok := Chapter(titlePath, true)
+	// get the article
+	o, ok := Article(titlePath, true)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
-	c := ChapterFn(o)
+	c := ArticleFn(o)
 
 	// create the image, from the POST
 	imgName, f, err := formFileImage(ctx, titlePath)
@@ -279,7 +279,7 @@ func ImgHandler(ctx wombat.Context, titlePath string, isThumb bool) {
 	}
 
 	// create the image object
-	var imgs []chapters.Img
+	var imgs []articles.Img
 	exists := false
 	s := i.Bounds().Size()
 	if isThumb {
@@ -289,7 +289,7 @@ func ImgHandler(ctx wombat.Context, titlePath string, isThumb bool) {
 		os.Remove(filepath.Join(imgPath, c.Img.Src))
 	} else {
 		l := len(c.Imgs)
-		imgs = make([]chapters.Img, l, l+1)
+		imgs = make([]articles.Img, l, l+1)
 		copy(imgs, c.Imgs)
 		for _, v := range imgs {
 			if v.Src == n {
@@ -298,13 +298,13 @@ func ImgHandler(ctx wombat.Context, titlePath string, isThumb bool) {
 			}
 		}
 		if !exists {
-			imgs = append(imgs, chapters.Img{n, "", s.X, s.Y})
+			imgs = append(imgs, articles.Img{n, "", s.X, s.Y})
 		}
 	}
 
 	// update article images
 	if isThumb {
-		err = c.SetImg(chapters.Img{n, imgName, s.X, s.Y})
+		err = c.SetImg(articles.Img{n, imgName, s.X, s.Y})
 	} else {
 		err = c.SetImgs(imgs)
 	}
@@ -343,19 +343,19 @@ func AddImage(ctx wombat.Context, titlePath string) {
 }
 
 func DelImage(ctx wombat.Context, titlePath string) {
-	// get the chapter
-	o, ok := Chapter(titlePath, true)
+	// get the article
+	o, ok := Article(titlePath, true)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
-	c := ChapterFn(o)
+	c := ArticleFn(o)
 
 	// get the image to be deleted
 	src := ctx.FormValue("image")
 
 	// update the articles images
-	n := []chapters.Img{}
+	n := []articles.Img{}
 	for _, i := range c.Imgs {
 		if i.Src != src {
 			n = append(n, i)
@@ -382,13 +382,13 @@ func DelImage(ctx wombat.Context, titlePath string) {
 }
 
 func SetActive(ctx wombat.Context, titlePath string) {
-	// get the chapter
-	o, ok := Chapter(titlePath, true)
+	// get the article
+	o, ok := Article(titlePath, true)
 	if !ok {
 		ctx.HttpError(404)
 		return
 	}
-	c := ChapterFn(o)
+	c := ArticleFn(o)
 
 	isActive, _ := strconv.ParseBool(ctx.FormValue("active"))
 	if err := c.Publish(isActive); err != nil {

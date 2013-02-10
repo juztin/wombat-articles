@@ -7,12 +7,12 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 
-	"bitbucket.org/juztin/wombat/apps/chapters"
+	"bitbucket.org/juztin/wombat/apps/articles"
 	"bitbucket.org/juztin/wombat/backends"
 	"bitbucket.org/juztin/wombat/config"
 )
 
-const COL_NAME = "chapters"
+const COL_NAME = "articles"
 
 var (
 	db      = "main"
@@ -21,30 +21,30 @@ var (
 
 type Backend struct {
 	session     *mgo.Session
-	NewChapter  ChapterFn
-	NewChapters ChaptersFn
+	NewArticle  ArticleFn
+	NewArticles ArticlesFn
 	SetPrinter  PrinterFn
 	SetPrinters PrintersFn
 }
 
 type QueryFunc func(c *mgo.Collection)
-type ChapterFn func() interface{}
-type ChaptersFn func(limit int) interface{}
+type ArticleFn func() interface{}
+type ArticlesFn func(limit int) interface{}
 type PrinterFn func(o interface{})
 type PrintersFn func(o interface{})
 
 func init() {
 	if url, ok := config.GroupString("db", "mongoURL"); !ok {
-		log.Fatal("apps-chapters mongo: MongoURL missing from configuration")
+		log.Fatal("apps-articles mongo: MongoURL missing from configuration")
 	} else if session, err := mgo.Dial(url); err != nil {
 		log.Fatal("Failed to retrieve Mongo session: ", err)
 	} else {
 		// set monotonic mode
 		session.SetMode(mgo.Monotonic, true)
 		// register backend
-		backend = Backend{session, newChapter, newChapters, setPrinter, setPrinters}
-		backends.Register("mongo:apps:chapter-reader", backend)
-		backends.Register("mongo:apps:chapter-printer", backend)
+		backend = Backend{session, newArticle, newArticles, setPrinter, setPrinters}
+		backends.Register("mongo:apps:article-reader", backend)
+		backends.Register("mongo:apps:article-printer", backend)
 	}
 
 	if d, ok := config.GroupString("db", "mongoDB"); ok {
@@ -52,22 +52,22 @@ func init() {
 	}
 }
 
-func newChapter() interface{} {
-	return new(chapters.Chapter)
+func newArticle() interface{} {
+	return new(articles.Article)
 }
 
-func newChapters(limit int) interface{} {
-	s := make([]chapters.Chapter, 0, limit)
+func newArticles(limit int) interface{} {
+	s := make([]articles.Article, 0, limit)
 	return &s
 }
 
 func setPrinter(o interface{}) {
-	if c, o := o.(*chapters.Chapter); o {
+	if c, o := o.(*articles.Article); o {
 		c.Printer = backend
 	}
 }
 func setPrinters(o interface{}) {
-	if s, ok := o.(*[]chapters.Chapter); ok {
+	if s, ok := o.(*[]articles.Article); ok {
 		for _, c := range *s {
 			c.Printer = backend
 		}
@@ -89,13 +89,13 @@ func (b Backend) ByTitlePath(titlePath string, unPublished bool) (interface{}, e
 	s, col := b.Col()
 	defer s.Close()
 
-	c := b.NewChapter()
+	c := b.NewArticle()
 	query := bson.M{"titlePath": titlePath}
 	if !unPublished {
 		query["isPublished"] = true
 	}
 	if err := col.Find(query).One(c); err != nil {
-		return c, backends.NewError(backends.StatusNotFound, "Chapter not found", err)
+		return c, backends.NewError(backends.StatusNotFound, "Article not found", err)
 	}
 	b.SetPrinter(c)
 	return c, nil
@@ -104,7 +104,7 @@ func (b Backend) Recent(limit, page int, unPublished bool) (interface{}, error) 
 	s, col := b.Col()
 	defer s.Close()
 
-	c := b.NewChapters(limit)
+	c := b.NewArticles(limit)
 	var q bson.M = nil
 	if !unPublished {
 		q = bson.M{"isPublished": true}
@@ -115,14 +115,14 @@ func (b Backend) Recent(limit, page int, unPublished bool) (interface{}, error) 
 		Skip(page * limit).
 		Iter()
 
-	i := new(chapters.Chapter)
+	i := new(articles.Article)
 	for iter.Next(&i) {
 		i.Printer = b
 		c = append(c, *i)
-		i = new(chapters.Chapter)
+		i = new(articles.Article)
 	}
 	if iter.Err() != nil {
-		return c, backends.NewError(backends.StatusDatastoreError, "Failed to query chapter list", iter.Err())
+		return c, backends.NewError(backends.StatusDatastoreError, "Failed to query article list", iter.Err())
 	}*/
 
 	/* Using the below, instead of the above because:
@@ -134,7 +134,7 @@ func (b Backend) Recent(limit, page int, unPublished bool) (interface{}, error) 
 		Skip(page * limit).
 		Limit(limit).
 		All(c); err != nil {
-		return c, backends.NewError(backends.StatusDatastoreError, "Failed to query chapter list", err)
+		return c, backends.NewError(backends.StatusDatastoreError, "Failed to query article list", err)
 	}
 	b.SetPrinter(c)
 
@@ -142,12 +142,12 @@ func (b Backend) Recent(limit, page int, unPublished bool) (interface{}, error) 
 }
 
 // Printer
-func (b Backend) Print(chapter interface{}) error {
+func (b Backend) Print(article interface{}) error {
 	s, col := b.Col()
 	defer s.Close()
 
-	if err := col.Insert(chapter); err != nil {
-		return backends.NewError(backends.StatusDatastoreError, "Failed to create chapter", err)
+	if err := col.Insert(article); err != nil {
+		return backends.NewError(backends.StatusDatastoreError, "Failed to create article", err)
 	}
 
 	return nil
@@ -156,11 +156,11 @@ func (b Backend) UpdateSynopsis(titlePath, synopsis string, modified time.Time) 
 	s, col := b.Col()
 	defer s.Close()
 
-	// update the chapter's content
+	// update the article's content
 	selector := bson.M{"titlePath": titlePath}
 	change := bson.M{"$set": bson.M{"synopsis": &synopsis, "modified": modified}}
 	if err := col.Update(selector, change); err != nil {
-		return backends.NewError(backends.StatusDatastoreError, "Failed to update chapter's synopsis", err)
+		return backends.NewError(backends.StatusDatastoreError, "Failed to update article's synopsis", err)
 	}
 	return nil
 }
@@ -168,11 +168,11 @@ func (b Backend) UpdateContent(titlePath, content string, modified time.Time) er
 	s, col := b.Col()
 	defer s.Close()
 
-	// update the chapter's content
+	// update the article's content
 	selector := bson.M{"titlePath": titlePath}
 	change := bson.M{"$set": bson.M{"content": &content, "modified": modified}}
 	if err := col.Update(selector, change); err != nil {
-		return backends.NewError(backends.StatusDatastoreError, "Failed to update chapter's content", err)
+		return backends.NewError(backends.StatusDatastoreError, "Failed to update article's content", err)
 	}
 	return nil
 }
@@ -180,10 +180,10 @@ func (b Backend) Delete(titlePath string) error {
 	s, col := b.Col()
 	defer s.Close()
 
-	// update the chapter's content
+	// update the article's content
 	selector := bson.M{"titlePath": titlePath}
 	if err := col.Remove(selector); err != nil {
-		return backends.NewError(backends.StatusDatastoreError, "Failed to remove chapter", err)
+		return backends.NewError(backends.StatusDatastoreError, "Failed to remove article", err)
 	}
 	return nil
 }

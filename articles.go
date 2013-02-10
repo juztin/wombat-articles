@@ -1,4 +1,4 @@
-package chapters
+package articles
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ type Img struct {
 	H   int    `h`   //`json:"h"`   // data:"h"`
 }
 
-type Chapter struct {
+type Article struct {
 	Printer     `-`       //`json:"-"`
 	TitlePath   string    `titlePath`   //`json:"titlePath"` // data:"titlepath"`
 	Title       string    `title`       //`json:"title"`     // data:"title"`
@@ -29,7 +29,7 @@ type Chapter struct {
 	Imgs        []Img     `imgs`        //`json:"imgs"`      // data:"imgs"`
 }
 
-type Chapters struct {
+type Articles struct {
 	Reader
 }
 
@@ -39,7 +39,7 @@ type Reader interface {
 }
 
 type Printer interface {
-	Print(chapter interface{}) error
+	Print(article interface{}) error
 	UpdateSynopsis(titlePath, synopsis string, modified time.Time) error
 	UpdateContent(titlePath, content string, modified time.Time) error
 	Delete(titlePath string) error
@@ -48,29 +48,29 @@ type Printer interface {
 	WriteImgs(titlePath string, imgs interface{}) error
 }
 
-func New() Chapters {
+func New() Articles {
 	var r Reader
-	if p, err := backends.Open("mongo:apps:chapter-reader"); err != nil {
-		log.Fatal("No 'chapter' reader available")
+	if p, err := backends.Open("mongo:apps:article-reader"); err != nil {
+		log.Fatal("No 'article' reader available")
 	} else {
 		if o, ok := p.(Reader); !ok {
-			log.Fatal("Invalid 'chapter' reader")
+			log.Fatal("Invalid 'article' reader")
 		} else {
 			r = o
 		}
 	}
-	return Chapters{r}
+	return Articles{r}
 }
 
-func NewChapter(title string) *Chapter {
-	if p, err := backends.Open("mongo:apps:chapter-printer"); err != nil {
-		log.Println("No 'chapter' printer available")
+func NewArticle(title string) *Article {
+	if p, err := backends.Open("mongo:apps:article-printer"); err != nil {
+		log.Println("No 'article' printer available")
 	} else {
 		if printer, ok := p.(Printer); !ok {
-			log.Println("Invalid 'chapter' printer")
+			log.Println("Invalid 'article' printer")
 		} else {
 			tp, t := titlePathTime(title)
-			return &Chapter{Printer: printer,
+			return &Article{Printer: printer,
 				Title:     title,
 				TitlePath: tp,
 				Created:   t}
@@ -90,14 +90,14 @@ func titlePathTime(title string) (string, time.Time) {
 	return titlePath, t
 }
 
-func (c *Chapter) Print() error {
+func (c *Article) Print() error {
 	return c.Printer.Print(c)
 }
-func (c *Chapter) UpdateContent(content string) error {
+func (c *Article) UpdateContent(content string) error {
 	return c.Printer.UpdateContent(c.TitlePath, content, time.Now())
 }
 
-func (c *Chapter) SetSynopsis(synopsis string) error {
+func (c *Article) SetSynopsis(synopsis string) error {
 	modified := time.Now()
 	if err := c.Printer.UpdateSynopsis(c.TitlePath, synopsis, modified); err != nil {
 		return err
@@ -108,7 +108,7 @@ func (c *Chapter) SetSynopsis(synopsis string) error {
 	return nil
 }
 
-func (c *Chapter) SetContent(content string) error {
+func (c *Article) SetContent(content string) error {
 	modified := time.Now()
 	if err := c.Printer.UpdateContent(c.TitlePath, content, modified); err != nil {
 		return err
@@ -119,7 +119,7 @@ func (c *Chapter) SetContent(content string) error {
 	return nil
 }
 
-func (c *Chapter) Delete() error {
+func (c *Article) Delete() error {
 	if err := c.Printer.Delete(c.TitlePath); err != nil {
 		log.Println(err)
 		return err
@@ -127,7 +127,7 @@ func (c *Chapter) Delete() error {
 	return nil
 }
 
-func (c *Chapter) Publish(publish bool) error {
+func (c *Article) Publish(publish bool) error {
 	if err := c.Printer.Publish(c.TitlePath, publish); err != nil {
 		log.Println(err)
 		return err
@@ -136,7 +136,7 @@ func (c *Chapter) Publish(publish bool) error {
 	return nil
 }
 
-func (c *Chapter) SetImg(img Img) error {
+func (c *Article) SetImg(img Img) error {
 	if err := c.Printer.WriteImg(c.TitlePath, img); err != nil {
 		log.Println(err)
 		return err
@@ -145,7 +145,7 @@ func (c *Chapter) SetImg(img Img) error {
 	return nil
 }
 
-func (c *Chapter) SetImgs(imgs []Img) error {
+func (c *Article) SetImgs(imgs []Img) error {
 	if err := c.Printer.WriteImgs(c.TitlePath, imgs); err != nil {
 		log.Println(err)
 		return err
