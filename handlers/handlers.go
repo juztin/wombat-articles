@@ -30,7 +30,7 @@ type chaptersData struct {
 	ChapterMediaURL string
 }
 
-type chapterFn func(chapter interface{}) chapters.Chapter
+type chapterFn func(chapter interface{}) *chapters.Chapter
 type dataFn func(ctx wombat.Context, chapter interface{}, titlePath string, isSingle bool) interface{}
 
 var (
@@ -70,8 +70,8 @@ func Init(s wombat.Server, basePath, list, chapter, create, update string) {
 		Post(postChapter)
 }
 
-func coreChapter(o interface{}) (c chapters.Chapter) {
-	if chapter, ok := o.(chapters.Chapter); ok {
+func coreChapter(o interface{}) (c *chapters.Chapter) {
+	if chapter, ok := o.(*chapters.Chapter); ok {
 		c = chapter
 	}
 	return
