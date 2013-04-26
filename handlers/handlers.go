@@ -101,7 +101,8 @@ func Article(titlePath string, unPublished bool) (c interface{}, ok bool) {
 func listArticles(ctx wombat.Context) {
 	if ctx.User.IsAdmin() {
 		if action := ctx.FormValue("action"); action == "create" {
-			views.Execute(ctx.Context, createView, data.New(ctx))
+			d := DataFn(ctx, nil, "", false)
+			views.Execute(ctx.Context, createView, d)
 			return
 		}
 	}
@@ -118,7 +119,8 @@ func newArticle(ctx wombat.Context) {
 			ctx.Redirect(fmt.Sprintf("%s/%s", articlePath, t))
 		}
 	}
-	views.Execute(ctx.Context, listView, data.New(ctx))
+	d := DataFn(ctx, nil, "", false)
+	views.Execute(ctx.Context, listView, d)
 }
 
 /*func renderArticle(ctx wombat.Context, c interface{}) {
