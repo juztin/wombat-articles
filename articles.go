@@ -90,66 +90,66 @@ func titlePathTime(title string) (string, time.Time) {
 	return titlePath, t
 }
 
-func (c *Article) Print() error {
-	return c.Printer.Print(c)
+func (a *Article) Print() error {
+	return a.Printer.Print(a)
 }
-func (c *Article) UpdateContent(content string) error {
-	return c.Printer.UpdateContent(c.TitlePath, content, time.Now())
+func (a *Article) UpdateContent(content string) error {
+	return a.Printer.UpdateContent(a.TitlePath, content, time.Now())
 }
 
-func (c *Article) SetSynopsis(synopsis string) error {
+func (a *Article) SetSynopsis(synopsis string) error {
 	modified := time.Now()
-	if err := c.Printer.UpdateSynopsis(c.TitlePath, synopsis, modified); err != nil {
+	if err := a.Printer.UpdateSynopsis(a.TitlePath, synopsis, modified); err != nil {
 		return err
 	} else {
-		c.Synopsis = synopsis
-		c.Modified = modified
+		a.Synopsis = synopsis
+		a.Modified = modified
 	}
 	return nil
 }
 
-func (c *Article) SetContent(content string) error {
+func (a *Article) SetContent(content string) error {
 	modified := time.Now()
-	if err := c.Printer.UpdateContent(c.TitlePath, content, modified); err != nil {
+	if err := a.Printer.UpdateContent(a.TitlePath, content, modified); err != nil {
 		return err
 	} else {
-		c.Content = content
-		c.Modified = modified
+		a.Content = content
+		a.Modified = modified
 	}
 	return nil
 }
 
-func (c *Article) Delete() error {
-	if err := c.Printer.Delete(c.TitlePath); err != nil {
+func (a *Article) Delete() error {
+	if err := a.Printer.Delete(a.TitlePath); err != nil {
 		log.Println(err)
 		return err
 	}
 	return nil
 }
 
-func (c *Article) Publish(publish bool) error {
-	if err := c.Printer.Publish(c.TitlePath, publish); err != nil {
+func (a *Article) Publish(publish bool) error {
+	if err := a.Printer.Publish(a.TitlePath, publish); err != nil {
 		log.Println(err)
 		return err
 	}
-	c.IsPublished = publish
+	a.IsPublished = publish
 	return nil
 }
 
-func (c *Article) SetImg(img Img) error {
-	if err := c.Printer.WriteImg(c.TitlePath, img); err != nil {
+func (a *Article) SetImg(img Img) error {
+	if err := a.Printer.WriteImg(a.TitlePath, img); err != nil {
 		log.Println(err)
 		return err
 	}
-	c.Img = img
+	a.Img = img
 	return nil
 }
 
-func (c *Article) SetImgs(imgs []Img) error {
-	if err := c.Printer.WriteImgs(c.TitlePath, imgs); err != nil {
+func (a *Article) SetImgs(imgs []Img) error {
+	if err := a.Printer.WriteImgs(a.TitlePath, imgs); err != nil {
 		log.Println(err)
 		return err
 	}
-	c.Imgs = imgs
+	a.Imgs = imgs
 	return nil
 }
