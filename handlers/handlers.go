@@ -201,13 +201,13 @@ func updateSynopsisContent(ctx wombat.Context, titlePath, key string) {
 	// render either JSON|HTML
 	if d := ctx.FormValue("d"); d == "json" {
 		// return the new article's (json)
-		ctx.Writer.Header().Set("Content-Type", "application/json")
+		ctx.Response.Header().Set("Content-Type", "application/json")
 		if j, err := json.Marshal(map[string]string{key: s}); err != nil {
 			log.Println("Failed to marshal article's `", key, "` to JSON : ", err)
 			ctx.HttpError(500)
 			return
 		} else {
-			ctx.Writer.Write(j)
+			ctx.Response.Write(j)
 		}
 	} else {
 		//renderArticle(ctx, *a)
@@ -324,13 +324,13 @@ func ImgHandler(ctx wombat.Context, titlePath string, isThumb bool) {
 
 	// return either a JSON/HTML response
 	if d := ctx.FormValue("d"); d == "json" {
-		ctx.Writer.Header().Set("Content-Type", "application/json")
+		ctx.Response.Header().Set("Content-Type", "application/json")
 		k := "image"
 		if isThumb {
 			k = "thumb"
 		}
 		j := fmt.Sprintf(`{"%s":"%s","w":%d,"h":%d}`, k, n, s.X, s.Y)
-		ctx.Writer.Write([]byte(j))
+		ctx.Response.Write([]byte(j))
 	} else {
 		//renderArticle(ctx, a)
 	}
@@ -379,7 +379,7 @@ func DelImage(ctx wombat.Context, titlePath string) {
 
 	// redirect back to the update page, when a regular POST
 	if d := ctx.FormValue("d"); d != "json" {
-		http.Redirect(ctx.Writer, ctx.Request, ctx.Request.Referer(), 303)
+		http.Redirect(ctx.Response, ctx.Request, ctx.Request.Referer(), 303)
 	}
 }
 
@@ -399,6 +399,6 @@ func SetActive(ctx wombat.Context, titlePath string) {
 	}
 
 	if d := ctx.FormValue("d"); d != "json" {
-		http.Redirect(ctx.Writer, ctx.Request, ctx.Request.Referer(), 303)
+		http.Redirect(ctx.Response, ctx.Request, ctx.Request.Referer(), 303)
 	}
 }
