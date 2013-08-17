@@ -7,9 +7,9 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 
+	"bitbucket.org/juztin/config"
 	"bitbucket.org/juztin/wombat/apps/articles"
 	"bitbucket.org/juztin/wombat/backends"
-	"bitbucket.org/juztin/wombat/config"
 )
 
 const COL_NAME = "articles"

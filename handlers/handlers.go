@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"bitbucket.org/juztin/config"
 	"bitbucket.org/juztin/dingo/views"
 	"bitbucket.org/juztin/wombat"
 	"bitbucket.org/juztin/wombat/apps/articles"
-	"bitbucket.org/juztin/wombat/config"
 	"bitbucket.org/juztin/wombat/template/data"
 )
 
