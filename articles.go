@@ -48,9 +48,11 @@ type Printer interface {
 	WriteImgs(titlePath string, imgs interface{}) error
 }
 
+const VERSION string = "0.0.1"
+
 func New() Articles {
 	var r Reader
-	if p, err := backends.Open("mongo:apps:article-reader"); err != nil {
+	if p, err := backends.Open("wombat:apps:article-reader"); err != nil {
 		log.Fatal("No 'article' reader available")
 	} else {
 		if o, ok := p.(Reader); !ok {
@@ -63,7 +65,7 @@ func New() Articles {
 }
 
 func NewArticle(title string) *Article {
-	if p, err := backends.Open("mongo:apps:article-printer"); err != nil {
+	if p, err := backends.Open("wombat:apps:article-printer"); err != nil {
 		log.Println("No 'article' printer available")
 	} else {
 		if printer, ok := p.(Printer); !ok {
@@ -97,59 +99,45 @@ func (a *Article) UpdateContent(content string) error {
 	return a.Printer.UpdateContent(a.TitlePath, content, time.Now())
 }
 
-func (a *Article) SetSynopsis(synopsis string) error {
+func (a *Article) SetSynopsis(synopsis string) (err error) {
 	modified := time.Now()
-	if err := a.Printer.UpdateSynopsis(a.TitlePath, synopsis, modified); err != nil {
-		return err
-	} else {
+	if err = a.Printer.UpdateSynopsis(a.TitlePath, synopsis, modified); err == nil {
 		a.Synopsis = synopsis
 		a.Modified = modified
 	}
-	return nil
+	return
 }
 
-func (a *Article) SetContent(content string) error {
+func (a *Article) SetContent(content string) (err error) {
 	modified := time.Now()
-	if err := a.Printer.UpdateContent(a.TitlePath, content, modified); err != nil {
-		return err
-	} else {
+	if err = a.Printer.UpdateContent(a.TitlePath, content, modified); err == nil {
 		a.Content = content
 		a.Modified = modified
 	}
-	return nil
+	return
 }
 
 func (a *Article) Delete() error {
-	if err := a.Printer.Delete(a.TitlePath); err != nil {
-		log.Println(err)
-		return err
-	}
-	return nil
+	return a.Printer.Delete(a.TitlePath)
 }
 
-func (a *Article) Publish(publish bool) error {
-	if err := a.Printer.Publish(a.TitlePath, publish); err != nil {
-		log.Println(err)
-		return err
+func (a *Article) Publish(publish bool) (err error) {
+	if err = a.Printer.Publish(a.TitlePath, publish); err == nil {
+		a.IsPublished = publish
 	}
-	a.IsPublished = publish
-	return nil
+	return
 }
 
-func (a *Article) SetImg(img Img) error {
-	if err := a.Printer.WriteImg(a.TitlePath, img); err != nil {
-		log.Println(err)
-		return err
+func (a *Article) SetImg(img Img) (err error) {
+	if err = a.Printer.WriteImg(a.TitlePath, img); err == nil {
+		a.Img = img
 	}
-	a.Img = img
-	return nil
+	return
 }
 
-func (a *Article) SetImgs(imgs []Img) error {
-	if err := a.Printer.WriteImgs(a.TitlePath, imgs); err != nil {
-		log.Println(err)
-		return err
+func (a *Article) SetImgs(imgs []Img) (err error) {
+	if err = a.Printer.WriteImgs(a.TitlePath, imgs); err == nil {
+		a.Imgs = imgs
 	}
-	a.Imgs = imgs
-	return nil
+	return
 }

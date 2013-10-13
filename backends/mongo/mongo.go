@@ -8,7 +8,7 @@ import (
 	"labix.org/v2/mgo/bson"
 
 	"bitbucket.org/juztin/config"
-	"bitbucket.org/juztin/wombat/apps/articles"
+	articles "bitbucket.org/juztin/wombat-articles"
 	"bitbucket.org/juztin/wombat/backends"
 )
 
@@ -35,7 +35,7 @@ type PrintersFn func(o interface{})
 
 func init() {
 	if url, ok := config.GroupString("db", "mongoURL"); !ok {
-		log.Fatal("apps-articles mongo: MongoURL missing from configuration")
+		log.Fatal("wombat:apps:article: MongoURL missing from configuration")
 	} else if session, err := mgo.Dial(url); err != nil {
 		log.Fatal("Failed to retrieve Mongo session: ", err)
 	} else {
@@ -43,8 +43,8 @@ func init() {
 		session.SetMode(mgo.Monotonic, true)
 		// register backend
 		backend = Backend{session, newArticle, newArticles, setPrinter, setPrinters}
-		backends.Register("mongo:apps:article-reader", backend)
-		backends.Register("mongo:apps:article-printer", backend)
+		backends.Register("wombat:apps:article-reader", backend)
+		backends.Register("wombat:apps:article-printer", backend)
 	}
 
 	if d, ok := config.GroupString("db", "mongoDB"); ok {

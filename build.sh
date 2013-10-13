@@ -1,5 +1,6 @@
 #!/bin/sh -
 
-go build ../articles \
-	../articles/backends/mongo \
-	../articles/handlers \
+go build ./\
+	./backends/mongo \
+	./handlers
+
