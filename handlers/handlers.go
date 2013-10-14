@@ -72,7 +72,6 @@ func New() Handler {
 }
 
 /*----------------------------------Helpers-----------------------------------*/
-// Security
 func requireAdmin(fn wombat.Handler) wombat.Handler {
 	return func(ctx wombat.Context) {
 		if !ctx.User.IsAdmin() {
@@ -95,17 +94,22 @@ func requireTitleAdmin(fn func(wombat.Context, string)) interface{} {
 	}
 }
 
-// ----------
+func baseArticle(o interface{}) (a *articles.Article) {
+	if article, ok := o.(*articles.Article); ok {
+		a = article
+	}
+	return
+}
 
-func getErrorStr(r *http.Request, msg string) string {
+func GetErrorStr(r *http.Request, msg string) string {
 	if request.IsApplicationJson(r) {
 		msg = fmt.Sprintf(`{"error":"%s"}`, msg)
 	}
 	return msg
 }
 
-func getError(r *http.Request, err error) string {
-	return getErrorStr(r, err.Error())
+func GetError(r *http.Request, err error) string {
+	return GetErrorStr(r, err.Error())
 }
 
 func IsImageRequest(ctx wombat.Context) bool {
@@ -114,7 +118,7 @@ func IsImageRequest(ctx wombat.Context) bool {
 	return i < imgTypes.Len() && imgTypes[i] == c
 }
 
-func JsonMessage(ctx wombat.Context) (msg JSONMessage, err error) {
+func GetJSONMessage(ctx wombat.Context) (msg JSONMessage, err error) {
 	var data []byte
 
 	defer ctx.Body.Close()
@@ -160,19 +164,17 @@ func RemoveImage(a *articles.Article, src, imagePath string) (err error) {
 }
 
 func JsonHandler(ctx wombat.Context, a *articles.Article, imagePath string) {
-	ctx.Response.Header().Set("Content-Type", "application/json")
-
 	// Get the JSONMessage from the request
-	msg, err := JsonMessage(ctx)
+	msg, err := GetJSONMessage(ctx)
 	if err != nil {
-		ctx.HttpError(http.StatusBadRequest, getError(ctx.Request, err))
+		ctx.HttpError(http.StatusBadRequest, GetError(ctx.Request, err))
 	}
 
 	// Perform the given action
 	switch msg.Action {
 	default:
 		// Invalid/missing action
-		ctx.HttpError(http.StatusBadRequest, getErrorStr(ctx.Request, "Invalid action"))
+		ctx.HttpError(http.StatusBadRequest, GetErrorStr(ctx.Request, "Invalid action"))
 	case "setSynopsis":
 		err = a.SetSynopsis(msg.Data)
 	case "setContent":
@@ -186,7 +188,7 @@ func JsonHandler(ctx wombat.Context, a *articles.Article, imagePath string) {
 
 	// Report if the action resulted in an error
 	if err != nil {
-		ctx.HttpError(http.StatusInternalServerError, getError(ctx.Request, err))
+		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 	}
 }
 
@@ -202,7 +204,7 @@ func ThumbHandler(ctx wombat.Context, a *articles.Article, path, filename string
 		}
 	}
 	if err != nil {
-		ctx.HttpError(http.StatusInternalServerError, getError(ctx.Request, err))
+		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 		return
 	}
 
@@ -212,7 +214,7 @@ func ThumbHandler(ctx wombat.Context, a *articles.Article, path, filename string
 	// Update the article's thumbnail
 	if err = a.SetImg(articles.Img{filename, filename, s.X, s.Y}); err != nil {
 		log.Println("Failed to persit new thumbnail: ", filename, " for article: ", a.TitlePath)
-		ctx.HttpError(http.StatusInternalServerError, getError(ctx.Request, err))
+		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 	} else {
 		os.Remove(oldThumb)
 		j := fmt.Sprintf(`{"w":%d,"h":%d}`, filename, s.X, s.Y)
@@ -225,7 +227,7 @@ func ImageHandler(ctx wombat.Context, a *articles.Article, path, filename string
 	// Save the image
 	img, err := web.SaveImage(ctx.Request, ctx.Response, path, filename)
 	if err != nil {
-		ctx.HttpError(http.StatusInternalServerError, getError(ctx.Request, err))
+		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 		return
 	}
 
@@ -245,18 +247,11 @@ func ImageHandler(ctx wombat.Context, a *articles.Article, path, filename string
 	// Update the article's images
 	if err = a.SetImgs(a.Imgs); err != nil {
 		log.Println("Failed to persit new image: ", filename, " for article: ", a.TitlePath)
-		ctx.HttpError(http.StatusInternalServerError, getError(ctx.Request, err))
+		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 	} else {
 		j := fmt.Sprintf(`{"w":%d,"h":%d}`, filename, s.X, s.Y)
 		ctx.Response.Write([]byte(j))
 	}
-}
-
-func baseArticle(o interface{}) (a *articles.Article) {
-	if article, ok := o.(*articles.Article); ok {
-		a = article
-	}
-	return
 }
 
 /*-----------------------------------Handler-----------------------------------*/
@@ -320,9 +315,9 @@ func (h Handler) PostArticles(ctx wombat.Context) {
 	title := ctx.FormValue("title")
 	if title == "" {
 		// Missing title
-		ctx.HttpError(http.StatusBadRequest, getErrorStr(ctx.Request, "Missing title"))
+		ctx.HttpError(http.StatusBadRequest, GetErrorStr(ctx.Request, "Missing title"))
 	} else if title, err = CreateArticle(ctx, title); err != nil { // Create article
-		ctx.HttpError(http.StatusInternalServerError, getError(ctx.Request, err))
+		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 	}
 
 	// When no error, and not a JSON request, issue redirect to new article
@@ -397,6 +392,6 @@ func (h Handler) DeleteArticle(ctx wombat.Context, titlePath string) {
 
 	a := h.ItoArticle(o)
 	if err := a.Delete(); err != nil {
-		ctx.HttpError(http.StatusInternalServerError, getError(ctx.Request, err))
+		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 	}
 }

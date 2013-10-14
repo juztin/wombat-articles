@@ -37,7 +37,7 @@ func init() {
 	if url, ok := config.GroupString("db", "mongoURL"); !ok {
 		log.Fatal("wombat:apps:article: MongoURL missing from configuration")
 	} else if session, err := mgo.Dial(url); err != nil {
-		log.Fatal("Failed to retrieve Mongo session: ", err)
+		log.Fatalf("Failed to retrieve Mongo session: %v", err)
 	} else {
 		// set monotonic mode
 		session.SetMode(mgo.Monotonic, true)
