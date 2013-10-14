@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -118,18 +119,6 @@ func IsImageRequest(ctx wombat.Context) bool {
 	return i < imgTypes.Len() && imgTypes[i] == c
 }
 
-func GetJSONMessage(ctx wombat.Context) (msg JSONMessage, err error) {
-	var data []byte
-
-	defer ctx.Body.Close()
-	data, err = ioutil.ReadAll(ctx.Body)
-	if err == nil {
-		err = json.Unmarshal(data, &msg)
-	}
-
-	return
-}
-
 func CreateArticle(ctx wombat.Context, title string) (string, error) {
 	a := articles.NewArticle(title)
 	if err := a.Print(); err != nil {
@@ -163,18 +152,20 @@ func RemoveImage(a *articles.Article, src, imagePath string) (err error) {
 	return
 }
 
-func JsonHandler(ctx wombat.Context, a *articles.Article, imagePath string) {
+func JSONHandler(ctx wombat.Context, a *articles.Article, imagePath string, data []byte) {
 	// Get the JSONMessage from the request
-	msg, err := GetJSONMessage(ctx)
+	var msg JSONMessage
+	err := json.Unmarshal(data, &msg)
 	if err != nil {
 		ctx.HttpError(http.StatusBadRequest, GetError(ctx.Request, err))
+		return
 	}
 
 	// Perform the given action
 	switch msg.Action {
 	default:
 		// Invalid/missing action
-		ctx.HttpError(http.StatusBadRequest, GetErrorStr(ctx.Request, "Invalid action"))
+		err = errors.New("Invalid Action")
 	case "setSynopsis":
 		err = a.SetSynopsis(msg.Data)
 	case "setContent":
@@ -189,6 +180,22 @@ func JsonHandler(ctx wombat.Context, a *articles.Article, imagePath string) {
 	// Report if the action resulted in an error
 	if err != nil {
 		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
+	}
+}
+
+func ImagesHandler(ctx wombat.Context, a *articles.Article, imagePath string) {
+	// Get the name of the image, or random name if missing/empty
+	filename := ctx.FormValue("name")
+	if filename == "" {
+		filename = web.RandName(5)
+	}
+
+	// Save the thumbnail, or image
+	path := filepath.Join(imagePath, a.TitlePath)
+	if t := ctx.FormValue("type"); t == "thumb" {
+		ThumbHandler(ctx, a, path, "thumb."+filename)
+	} else {
+		ImageHandler(ctx, a, path, filename)
 	}
 }
 
@@ -359,22 +366,15 @@ func (h Handler) PutArticle(ctx wombat.Context, titlePath string) {
 
 	// JSON message
 	if request.IsApplicationJson(ctx.Request) {
-		JsonHandler(ctx, a, h.ImagePath)
-	} else if IsImageRequest(ctx) {
-		// Get the name of the image, or random name if missing/empty
-		filename := ctx.FormValue("name")
-		if filename == "" {
-			filename = web.RandName(5)
-		}
-
-		// Save the thumbnail, or image
-		path := filepath.Join(h.ImagePath, a.TitlePath)
-		if t := ctx.FormValue("type"); t == "thumb" {
-			ThumbHandler(ctx, a, path, "thumb."+filename)
+		// Get the bytes for JSON processing
+		defer ctx.Body.Close()
+		if data, err := ioutil.ReadAll(ctx.Body); err != nil {
+			ctx.HttpError(http.StatusBadRequest, GetError(ctx.Request, err))
 		} else {
-			ImageHandler(ctx, a, path, filename)
+			JSONHandler(ctx, a, h.ImagePath, data)
 		}
-
+	} else if IsImageRequest(ctx) {
+		ImagesHandler(ctx, a, h.ImagePath)
 	} else {
 		// Nothing could be done for the given request
 		ctx.HttpError(http.StatusBadRequest)
