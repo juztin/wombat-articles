@@ -17,6 +17,7 @@ import (
 	"bitbucket.org/juztin/imagery/web"
 	"bitbucket.org/juztin/wombat"
 	articles "bitbucket.org/juztin/wombat-articles"
+	"bitbucket.org/juztin/wombat/backends"
 	"bitbucket.org/juztin/wombat/template/data"
 )
 
@@ -273,12 +274,15 @@ func (h Handler) AddRoutes(s wombat.Server) {
 }
 
 func (h Handler) Article(titlePath string, unPublished bool) (a interface{}, ok bool) {
-	if o, err := h.articles.ByTitlePath(titlePath, unPublished); err != nil {
-		// Maybe we don't want to log this, just in case someone decides to be a jerk
-		log.Println("couldn't get article: ", titlePath, " : ", err)
+	o, err := h.articles.ByTitlePath(titlePath, unPublished)
+	if err != nil {
+		if err, ok := err.(backends.Error); ok && err.Status() != backends.StatusNotFound {
+			log.Println(err)
+		}
 	} else {
 		a, ok = o, true
 	}
+
 	return
 }
 
