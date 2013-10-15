@@ -73,7 +73,14 @@ func New() Handler {
 }
 
 /*----------------------------------Helpers-----------------------------------*/
-func requireAdmin(fn wombat.Handler) wombat.Handler {
+func baseArticle(o interface{}) (a *articles.Article) {
+	if article, ok := o.(*articles.Article); ok {
+		a = article
+	}
+	return
+}
+
+func RequireAdmin(fn wombat.Handler) wombat.Handler {
 	return func(ctx wombat.Context) {
 		if !ctx.User.IsAdmin() {
 			ctx.HttpError(http.StatusUnauthorized)
@@ -84,7 +91,7 @@ func requireAdmin(fn wombat.Handler) wombat.Handler {
 	}
 }
 
-func requireTitleAdmin(fn func(wombat.Context, string)) interface{} {
+func RequireTitleAdmin(fn func(wombat.Context, string)) interface{} {
 	return func(ctx wombat.Context, titlePath string) {
 		if !ctx.User.IsAdmin() {
 			ctx.HttpError(http.StatusUnauthorized)
@@ -93,13 +100,6 @@ func requireTitleAdmin(fn func(wombat.Context, string)) interface{} {
 
 		fn(ctx, titlePath)
 	}
-}
-
-func baseArticle(o interface{}) (a *articles.Article) {
-	if article, ok := o.(*articles.Article); ok {
-		a = article
-	}
-	return
 }
 
 func GetErrorStr(r *http.Request, msg string) string {
@@ -266,13 +266,13 @@ func (h Handler) AddRoutes(s wombat.Server) {
 	// routes
 	s.ReRouter(fmt.Sprintf("^%s/$", h.BasePath)).
 		Get(h.GetArticles).
-		Post(requireAdmin(h.PostArticles))
+		Post(RequireAdmin(h.PostArticles))
 
 	s.RRouter(fmt.Sprintf("^%s/(\\d{4}/\\d{2}/\\d{2}/[a-zA-Z0-9-]+/)$", h.BasePath)).
 		Get(h.GetArticle).
-		//Post(requireTitleAdmin(h.PostArticle)).
-		Put(requireTitleAdmin(h.PutArticle)).
-		Delete(requireTitleAdmin(h.DeleteArticle))
+		//Post(RequireTitleAdmin(h.PostArticle)).
+		Put(RequireTitleAdmin(h.PutArticle)).
+		Delete(RequireTitleAdmin(h.DeleteArticle))
 }
 
 func (h Handler) Article(titlePath string, unPublished bool) (a interface{}, ok bool) {
