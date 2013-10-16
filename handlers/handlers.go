@@ -54,6 +54,14 @@ type Handler struct {
 	Templates  map[string]string
 }
 
+type Router interface {
+	GetArticles(ctx wombat.Context)
+	PostArticles(ctx wombat.Context)
+	GetArticle(ctx wombat.Context, titlePath string)
+	PutArticle(ctx wombat.Context, titlePath string)
+	DeleteArticle(ctx wombat.Context, titlePath string)
+}
+
 type ItoArticle func(o interface{}) *articles.Article
 
 func New() Handler {
@@ -100,6 +108,19 @@ func RequireTitleAdmin(fn func(wombat.Context, string)) interface{} {
 
 		fn(ctx, titlePath)
 	}
+}
+
+func AddRoutes(s wombat.Server, r Router, basePath string) {
+	// routes
+	s.ReRouter(fmt.Sprintf("^%s/$", basePath)).
+		Get(r.GetArticles).
+		Post(RequireAdmin(r.PostArticles))
+
+	s.RRouter(fmt.Sprintf("^%s/(\\d{4}/\\d{2}/\\d{2}/[a-zA-Z0-9-]+/)$", basePath)).
+		Get(r.GetArticle).
+		//Post(r.RequireTitleAdmin(h.PostArticle)).
+		Put(RequireTitleAdmin(r.PutArticle)).
+		Delete(RequireTitleAdmin(r.DeleteArticle))
 }
 
 func GetErrorStr(r *http.Request, msg string) string {
@@ -262,19 +283,6 @@ func ImageHandler(ctx wombat.Context, a *articles.Article, path, filename string
 }
 
 /*-----------------------------------Handler-----------------------------------*/
-func (h Handler) AddRoutes(s wombat.Server) {
-	// routes
-	s.ReRouter(fmt.Sprintf("^%s/$", h.BasePath)).
-		Get(h.GetArticles).
-		Post(RequireAdmin(h.PostArticles))
-
-	s.RRouter(fmt.Sprintf("^%s/(\\d{4}/\\d{2}/\\d{2}/[a-zA-Z0-9-]+/)$", h.BasePath)).
-		Get(h.GetArticle).
-		//Post(RequireTitleAdmin(h.PostArticle)).
-		Put(RequireTitleAdmin(h.PutArticle)).
-		Delete(RequireTitleAdmin(h.DeleteArticle))
-}
-
 func (h Handler) Article(titlePath string, unPublished bool) (a interface{}, ok bool) {
 	o, err := h.articles.ByTitlePath(titlePath, unPublished)
 	if err != nil {
