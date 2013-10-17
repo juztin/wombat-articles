@@ -91,6 +91,9 @@ func baseArticle(o interface{}) (a *articles.Article) {
 func RequireAdmin(fn wombat.Handler) wombat.Handler {
 	return func(ctx wombat.Context) {
 		if !ctx.User.IsAdmin() {
+			if request.IsApplicationJson(ctx.Request) {
+				ctx.Response.Header().Set("Content-Type", "application/json")
+			}
 			ctx.HttpError(http.StatusUnauthorized)
 			return
 		}
@@ -102,6 +105,9 @@ func RequireAdmin(fn wombat.Handler) wombat.Handler {
 func RequireTitleAdmin(fn func(wombat.Context, string)) interface{} {
 	return func(ctx wombat.Context, titlePath string) {
 		if !ctx.User.IsAdmin() {
+			if request.IsApplicationJson(ctx.Request) {
+				ctx.Response.Header().Set("Content-Type", "application/json")
+			}
 			ctx.HttpError(http.StatusUnauthorized)
 			return
 		}
@@ -245,7 +251,7 @@ func ThumbHandler(ctx wombat.Context, a *articles.Article, path, filename string
 		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 	} else {
 		os.Remove(oldThumb)
-		j := fmt.Sprintf(`{"w":%d,"h":%d}`, filename, s.X, s.Y)
+		j := fmt.Sprintf(`{"thumb":"%s", "w":%d,"h":%d}`, filename, s.X, s.Y)
 		ctx.Response.Write([]byte(j))
 	}
 }
@@ -277,7 +283,7 @@ func ImageHandler(ctx wombat.Context, a *articles.Article, path, filename string
 		log.Println("Failed to persit new image: ", filename, " for article: ", a.TitlePath)
 		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
 	} else {
-		j := fmt.Sprintf(`{"w":%d,"h":%d}`, filename, s.X, s.Y)
+		j := fmt.Sprintf(`{"image":"%s", "w":%d,"h":%d}`, filename, s.X, s.Y)
 		ctx.Response.Write([]byte(j))
 	}
 }
