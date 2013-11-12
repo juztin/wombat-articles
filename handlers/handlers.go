@@ -322,7 +322,7 @@ func (h Handler) GetArticles(ctx wombat.Context) {
 	switch view := ctx.FormValue("view"); {
 	default:
 		tmpl = "list"
-		o, _ = h.articles.Recent(10, 0, ctx.User.IsAdmin())
+		o, _ = h.articles.Recent(30, 0, ctx.User.IsAdmin())
 	case view == "create" && ctx.User.IsAdmin():
 		tmpl = "create"
 	}
