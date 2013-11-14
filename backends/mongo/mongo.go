@@ -130,7 +130,7 @@ func (b Backend) Recent(limit, page int, unPublished bool) (interface{}, error) 
 	 *  the the below is about 450 req/s faster
 	 */
 	if err := col.Find(q).
-		Sort("created").
+		Sort("-created").
 		Skip(page * limit).
 		Limit(limit).
 		All(c); err != nil {
