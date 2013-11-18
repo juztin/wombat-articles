@@ -13,7 +13,7 @@ import (
 	"bitbucket.org/juztin/wombat/backends"
 )
 
-type Img struct {
+/*type Img struct {
 	Src string `src` //`json:"src"` // data:"src"`
 	Alt string `alt` //`json:"alt"` // data:"alt"`
 	W   int    `w`   //`json:"w"`   // data:"w"`
@@ -31,6 +31,28 @@ type Article struct {
 	Modified    time.Time `modified`    //`json:"modified"`  // data:"modified"`
 	Img         Img       `img`         //`json:"img"`       // data:"img"`
 	Imgs        []Img     `imgs`        //`json:"imgs"`      // data:"imgs"`
+}*/
+
+// TODO I'd like to use something like the above (data tags), or leave it up to the backend
+//      implementation, instead of having implementation specific tags (bson tags).
+type Img struct {
+	Src string `json:"src" bson:"src"`
+	Alt string `json:"alt" bson:"alt"`
+	W   int    `json:"w" bson:"w"`
+	H   int    `json:"h" bson:"h"`
+}
+
+type Article struct {
+	Printer     `json:"-" bson:"-"`
+	TitlePath   string    `json:"titlePath" bson:"titlePath"`
+	Title       string    `json:"title" bson:"title"`
+	Synopsis    string    `json:"synopsis" bson:"synopsis"`
+	Content     string    `json:"content" bson:"content"`
+	IsPublished bool      `json:"isPublished" bson:"isPublished"`
+	Created     time.Time `json:"created" bson:"created"`
+	Modified    time.Time `json:"modified" bson:"modified"`
+	Img         Img       `json:"img" bson:"img"`
+	Imgs        []Img     `json:"imgs" bson:"imgs"`
 }
 
 type Articles struct {
@@ -52,7 +74,7 @@ type Printer interface {
 	WriteImgs(titlePath string, imgs interface{}) error
 }
 
-const VERSION string = "0.0.1"
+const VERSION string = "0.0.2"
 
 func New() Articles {
 	var r Reader
@@ -145,3 +167,7 @@ func (a *Article) SetImgs(imgs []Img) (err error) {
 	}
 	return
 }
+
+/*func (a *Article) MarshalJSON() ([]byte, error) {
+	return []byte(`{ "titlePath": "bob" }`), nil
+}*/
