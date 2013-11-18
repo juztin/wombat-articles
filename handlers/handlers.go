@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 
 	"bitbucket.org/juztin/config"
 	"bitbucket.org/juztin/dingo/request"
@@ -52,6 +53,7 @@ type JSONMessage struct {
 type Handler struct {
 	articles   articles.Articles
 	ItoArticle ItoArticle
+	PageCount  int
 	MediaURL   string
 	BasePath   string
 	ImagePath  string
@@ -72,15 +74,26 @@ func New() Handler {
 	h := new(Handler)
 	h.articles = articles.New()
 	h.ItoArticle = baseArticle
+
+	// URLs, Paths
 	h.MediaURL = config.Required.GroupString("articles", "mediaURL")
 	h.BasePath = config.Required.GroupString("articles", "basePath")
 	h.ImagePath = config.Required.GroupString("articles", "imagePath")
+
+	// Templates
 	h.Templates = map[string]string{
 		"list":   "/articles/articles.html",
 		"view":   "/articles/article.html",
 		"create": "/articles/create.html",
 		"edit":   "/articles/edit.html",
 	}
+
+	// Page count
+	h.PageCount = 30
+	if c, ok := config.GroupInt("articles", "pageCount"); ok {
+		h.PageCount = c
+	}
+
 	return *h
 }
 
@@ -183,6 +196,8 @@ func RemoveImage(a *articles.Article, src, imagePath string) (err error) {
 	return
 }
 
+/*----------------------------------Handlers----------------------------------*/
+
 func JSONHandler(ctx wombat.Context, a *articles.Article, imagePath string, data []byte) {
 	// Get the JSONMessage from the request
 	var msg JSONMessage
@@ -211,22 +226,6 @@ func JSONHandler(ctx wombat.Context, a *articles.Article, imagePath string, data
 	// Report if the action resulted in an error
 	if err != nil {
 		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
-	}
-}
-
-func ImagesHandler(ctx wombat.Context, a *articles.Article, imagePath string) {
-	// Get the name of the image, or random name if missing/empty
-	filename := ctx.FormValue("name")
-	if filename == "" {
-		filename = web.RandName(5)
-	}
-
-	// Save the thumbnail, or image
-	path := filepath.Join(imagePath, a.TitlePath)
-	if t := ctx.FormValue("type"); t == "thumb" {
-		ThumbHandler(ctx, a, path, "thumb."+filename)
-	} else {
-		ImageHandler(ctx, a, path, filename)
 	}
 }
 
@@ -292,7 +291,37 @@ func ImageHandler(ctx wombat.Context, a *articles.Article, path, filename string
 	}
 }
 
-/*-----------------------------------Handler-----------------------------------*/
+func ImagesHandler(ctx wombat.Context, a *articles.Article, imagePath string) {
+	// Get the name of the image, or random name if missing/empty
+	filename := ctx.FormValue("name")
+	if filename == "" {
+		filename = web.RandName(5)
+	}
+
+	// Save the thumbnail, or image
+	path := filepath.Join(imagePath, a.TitlePath)
+	if t := ctx.FormValue("type"); t == "thumb" {
+		ThumbHandler(ctx, a, path, "thumb."+filename)
+	} else {
+		ImageHandler(ctx, a, path, filename)
+	}
+}
+
+func articleResponse(ctx wombat.Context, h *Handler, o interface{}, tmpl, title string) {
+	if request.IsApplicationJson(ctx.Request) {
+		// JSON
+		ctx.Response.Header().Set("Content-Type", "application/json")
+		jd, _ := json.Marshal(o)
+		ctx.Response.Write(jd)
+	} else {
+		// HTTP
+		data := h.Data(ctx, o, title)
+		views.Execute(ctx.Context, h.Templates[tmpl], data)
+	}
+}
+
+/*------------------------Handler-------------------------*/
+
 func (h Handler) Article(titlePath string, unPublished bool) (a interface{}, ok bool) {
 	o, err := h.articles.ByTitlePath(titlePath, unPublished)
 	if err != nil {
@@ -313,47 +342,59 @@ func (h Handler) Data(ctx wombat.Context, article interface{}, titlePath string)
 	return &ArticleData{data.New(ctx), article, h.MediaURL + titlePath}
 }
 
-/*---------------Articles---------------*/
+/*----------Articles----------*/
 func (h Handler) GetArticles(ctx wombat.Context) {
-	// TODO implement JSON handler
 	var tmpl string
 	var o interface{}
 
 	switch view := ctx.FormValue("view"); {
 	default:
 		tmpl = "list"
-		o, _ = h.articles.Recent(30, 0, ctx.User.IsAdmin())
+		page, err := strconv.Atoi(ctx.FormValue("page"))
+		if err != nil {
+			page = 0
+		}
+		o, _ = h.articles.Recent(h.PageCount, page, ctx.User.IsAdmin())
 	case view == "create" && ctx.User.IsAdmin():
 		tmpl = "create"
 	}
 
-	data := h.Data(ctx, o, "")
-	views.Execute(ctx.Context, h.Templates[tmpl], data)
+	// Handle HTTP/JSON response
+	articleResponse(ctx, &h, o, tmpl, "")
 }
 
 func (h Handler) PostArticles(ctx wombat.Context) {
+	title := ctx.FormValue("title")
 	if request.IsApplicationJson(ctx.Request) {
 		ctx.Response.Header().Set("Content-Type", "application/json")
+		defer ctx.Body.Close()
+		if b, err := ioutil.ReadAll(ctx.Body); err != nil {
+			m := make(map[string]interface{})
+			json.Unmarshal(b, &m)
+			title, _ = m["title"].(string)
+		}
 	}
 
-	var err error
-	title := ctx.FormValue("title")
 	if title == "" {
 		// Missing title
 		ctx.HttpError(http.StatusBadRequest, GetErrorStr(ctx.Request, "Missing title"))
-	} else if title, err = CreateArticle(ctx, title); err != nil { // Create article
-		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
+		return
 	}
 
-	// When no error, and not a JSON request, issue redirect to new article
-	if err != nil && !request.IsApplicationJson(ctx.Request) {
-		ctx.Redirect(fmt.Sprintf("%s/%s", h.BasePath, title))
+	t, err := CreateArticle(ctx, title)
+	if err != nil {
+		ctx.HttpError(http.StatusInternalServerError, GetError(ctx.Request, err))
+		return
+	}
+
+	// When not a JSON request issue redirect to new article
+	if !request.IsApplicationJson(ctx.Request) {
+		ctx.Redirect(fmt.Sprintf("%s/%s?view=edit", h.BasePath, t))
 	}
 }
 
-/*---------------Article----------------*/
+/*----------Article-----------*/
 func (h Handler) GetArticle(ctx wombat.Context, titlePath string) {
-	// TODO implement JSON handler
 	isAdmin := ctx.User.IsAdmin()
 	o, ok := h.Article(titlePath, isAdmin)
 	if !ok {
@@ -361,16 +402,14 @@ func (h Handler) GetArticle(ctx wombat.Context, titlePath string) {
 		return
 	}
 
-	tmpl := h.Templates["view"]
+	tmpl := "view"
 	if isAdmin && ctx.FormValue("view") == "edit" {
-		tmpl = h.Templates["edit"]
+		tmpl = "edit"
 	}
 
-	data := h.Data(ctx, o, titlePath)
-	views.Execute(ctx.Context, tmpl, data)
+	// Handle HTTP/JSON response
+	articleResponse(ctx, &h, o, tmpl, titlePath)
 }
-
-//func (h Handler) PostArticle(ctx wombat.Context, titlePath string) {}
 
 func (h Handler) PutArticle(ctx wombat.Context, titlePath string) {
 	ctx.Response.Header().Set("Content-Type", "application/json")
