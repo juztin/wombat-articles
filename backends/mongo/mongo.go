@@ -7,49 +7,53 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 
-	"bitbucket.org/juztin/config"
-	articles "bitbucket.org/juztin/wombat-articles"
-	"bitbucket.org/juztin/wombat/backends"
-)
-
-const COL_NAME = "articles"
-
-var (
-	db      = "main"
-	backend Backend
+	"minty.io/config"
+	articles "minty.io/wombat-articles"
+	"minty.io/wombat/backends"
 )
 
 type Backend struct {
-	session     *mgo.Session
-	NewArticle  ArticleFn
-	NewArticles ArticlesFn
-	SetPrinter  PrinterFn
-	SetPrinters PrintersFn
+	database, collection string
+	session              *mgo.Session
+	NewArticle           ArticleFn
+	NewArticles          ArticlesFn
+	SetPrinter           PrinterFn
+	SetPrinters          PrintersFn
 }
 
 type QueryFunc func(c *mgo.Collection)
 type ArticleFn func() interface{}
 type ArticlesFn func(limit int) interface{}
-type PrinterFn func(o interface{})
-type PrintersFn func(o interface{})
+type PrinterFn func(o interface{}, p articles.Printer)
+type PrintersFn func(o interface{}, p articles.Printer)
 
 func init() {
-	if url, ok := config.GroupString("db", "mongoURL"); !ok {
+	// Mongo URL
+	url, ok := config.GroupString("db", "mongoURL")
+	if !ok {
 		log.Fatal("wombat:apps:article: MongoURL missing from configuration")
-	} else if session, err := mgo.Dial(url); err != nil {
-		log.Fatalf("Failed to retrieve Mongo session: %v", err)
-	} else {
-		// set monotonic mode
-		session.SetMode(mgo.Monotonic, true)
-		// register backend
-		backend = Backend{session, newArticle, newArticles, setPrinter, setPrinters}
-		backends.Register("wombat:apps:article-reader", backend)
-		backends.Register("wombat:apps:article-printer", backend)
 	}
 
-	if d, ok := config.GroupString("db", "mongoDB"); ok {
-		db = d
+	// Database name
+	db, ok := config.GroupString("db", "mongoDB")
+	if !ok {
+		db = "main"
 	}
+
+	col, ok := config.GroupString("db", "mongoCol")
+	if !ok {
+		col = "articles"
+	}
+
+	// Mongo error
+	b, err := New(url, db, col)
+	if err != nil {
+		log.Fatal("Failed to create backend: %v", err)
+	}
+
+	// Register
+	backends.Register("wombat:apps:article-reader", b)
+	backends.Register("wombat:apps:article-printer", b)
 }
 
 func newArticle() interface{} {
@@ -61,22 +65,36 @@ func newArticles(limit int) interface{} {
 	return &s
 }
 
-func setPrinter(o interface{}) {
-	if c, o := o.(*articles.Article); o {
-		c.Printer = backend
+func setPrinter(o interface{}, p articles.Printer) {
+	if a, o := o.(*articles.Article); o {
+		a.Printer = p
 	}
 }
-func setPrinters(o interface{}) {
+func setPrinters(o interface{}, p articles.Printer) {
 	if s, ok := o.(*[]articles.Article); ok {
-		for _, c := range *s {
-			c.Printer = backend
+		for _, a := range *s {
+			a.Printer = p
 		}
 	}
 }
 
+func New(url, database, collection string) (Backend, error) {
+	var b Backend
+	session, err := mgo.Dial(url)
+	if err != nil {
+		return b, err
+	}
+
+	session.SetMode(mgo.Monotonic, true)
+	b = Backend{database, collection, session, newArticle, newArticles, setPrinter, setPrinters}
+	return b, nil
+}
+
 func (b Backend) Col() (*mgo.Session, *mgo.Collection) {
 	s := b.session.New()
-	return s, s.DB(db).C(COL_NAME)
+	//return s, s.DB(db).C(COL_NAME)
+	//return s, s.DB(db).C(b.collection)
+	return s, s.DB(b.database).C(b.collection)
 }
 func (b Backend) Query(fn QueryFunc) {
 	s, c := b.Col()
@@ -97,7 +115,7 @@ func (b Backend) ByTitlePath(titlePath string, unPublished bool) (interface{}, e
 	if err := col.Find(query).One(c); err != nil {
 		return c, backends.NewError(backends.StatusNotFound, "Article not found", err)
 	}
-	b.SetPrinter(c)
+	b.SetPrinter(c, b)
 	return c, nil
 }
 func (b Backend) Recent(limit, page int, unPublished bool) (interface{}, error) {
@@ -136,7 +154,7 @@ func (b Backend) Recent(limit, page int, unPublished bool) (interface{}, error) 
 		All(c); err != nil {
 		return c, backends.NewError(backends.StatusDatastoreError, "Failed to query article list", err)
 	}
-	b.SetPrinter(c)
+	b.SetPrinter(c, b)
 
 	return c, nil
 }

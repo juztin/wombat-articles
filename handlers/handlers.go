@@ -16,15 +16,15 @@ import (
 	"sort"
 	"strconv"
 
-	"bitbucket.org/juztin/config"
-	"bitbucket.org/juztin/dingo/request"
-	"bitbucket.org/juztin/dingo/views"
-	"bitbucket.org/juztin/imagery"
-	"bitbucket.org/juztin/imagery/web"
-	"bitbucket.org/juztin/wombat"
-	articles "bitbucket.org/juztin/wombat-articles"
-	"bitbucket.org/juztin/wombat/backends"
-	"bitbucket.org/juztin/wombat/template/data"
+	"minty.io/config"
+	"minty.io/dingo/request"
+	"minty.io/dingo/views"
+	"minty.io/imagery"
+	"minty.io/imagery/web"
+	"minty.io/wombat"
+	articles "minty.io/wombat-articles"
+	"minty.io/wombat/backends"
+	"minty.io/wombat/template/data"
 )
 
 var imgTypes = sort.StringSlice{

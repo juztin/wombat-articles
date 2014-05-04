@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/juztin/wombat/backends"
+	"minty.io/wombat/backends"
 )
 
 /*type Img struct {
