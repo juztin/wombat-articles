@@ -16,15 +16,15 @@ import (
 	"sort"
 	"strconv"
 
-	"minty.io/config"
-	"minty.io/dingo/request"
-	"minty.io/dingo/views"
-	"minty.io/imagery"
-	"minty.io/imagery/web"
-	"minty.io/wombat"
-	articles "minty.io/wombat-articles"
-	"minty.io/wombat/backends"
-	"minty.io/wombat/template/data"
+	"code.minty.io/config"
+	"code.minty.io/dingo/request"
+	"code.minty.io/dingo/views"
+	"code.minty.io/imagery"
+	"code.minty.io/imagery/web"
+	"code.minty.io/wombat"
+	articles "code.minty.io/wombat-articles"
+	"code.minty.io/wombat/backends"
+	"code.minty.io/wombat/template/data"
 )
 
 var imgTypes = sort.StringSlice{

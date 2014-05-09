@@ -7,9 +7,9 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 
-	"minty.io/config"
-	articles "minty.io/wombat-articles"
-	"minty.io/wombat/backends"
+	"code.minty.io/config"
+	articles "code.minty.io/wombat-articles"
+	"code.minty.io/wombat/backends"
 )
 
 type Backend struct {
