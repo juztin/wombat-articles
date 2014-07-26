@@ -76,9 +76,9 @@ func New() Handler {
 	h.ItoArticle = baseArticle
 
 	// URLs, Paths
-	h.MediaURL = config.Required.GroupString("articles", "mediaURL")
-	h.BasePath = config.Required.GroupString("articles", "basePath")
-	h.ImagePath = config.Required.GroupString("articles", "imagePath")
+	h.MediaURL = config.RequiredGroupString("articles", "mediaURL")
+	h.BasePath = config.RequiredGroupString("articles", "basePath")
+	h.ImagePath = config.RequiredGroupString("articles", "imagePath")
 
 	// Templates
 	h.Templates = map[string]string{
